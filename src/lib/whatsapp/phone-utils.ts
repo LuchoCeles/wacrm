@@ -61,37 +61,62 @@ export function isValidE164(phone: string): boolean {
  * @param sanitized - digits-only phone number (from sanitizePhoneForMeta)
  * @returns deduplicated list of variants, original first
  */
+
+/*ARREGLADO PARA ARGENTINA Y MEXICO, PARA EL RESTO DE LOS PAISES SOLO QUITA CEROS, NO LOS AGREGA*/
 export function phoneVariants(sanitized: string): string[] {
-  if (!sanitized) return []
-  const seen = new Set<string>()
+  if (!sanitized) return [];
+  const seen = new Set<string>();
+  
   const push = (v: string) => {
-    if (v && !seen.has(v)) seen.add(v)
+    if (v && !seen.has(v)) seen.add(v);
+  };
+
+  // 1. Siempre intentar primero el número original que ingresó el usuario
+  push(sanitized);
+
+  // 2. Reglas específicas para ARGENTINA (54)
+  if (sanitized.startsWith('54')) {
+    let rest = sanitized.slice(2); // Todo lo que está después del 54
+    
+    // Quitamos el '9' inicial si lo tiene
+    let sinNueve = rest.startsWith('9') ? rest.slice(1) : rest;
+    
+    // Quitamos el '0' inicial si lo tiene (el 0 del código de área)
+    let sinNueveNiCero = sinNueve.startsWith('0') ? sinNueve.slice(1) : sinNueve;
+    let conNueveSinCero = rest.startsWith('9') && rest.charAt(1) === '0' 
+        ? '9' + rest.slice(2) 
+        : rest;
+
+    // Variante A: (La que te funcionó a ti) -> Sin 9 y sin 0
+    push('54' + sinNueveNiCero);
+    
+    // Variante B: Con 9 pero sin 0
+    push('54' + conNueveSinCero);
   }
 
-  // 1. Original
-  push(sanitized)
-
-  // 2. Insert a 0 after each plausible country-code length
-  for (const ccLen of [1, 2, 3]) {
-    if (sanitized.length <= ccLen) continue
-    const cc = sanitized.slice(0, ccLen)
-    const rest = sanitized.slice(ccLen)
-    if (!rest.startsWith('0')) {
-      push(cc + '0' + rest)
+  // 3. Reglas específicas para MÉXICO (52)
+  if (sanitized.startsWith('52')) {
+    let rest = sanitized.slice(2);
+    // En México el dígito extra problemático es el '1' después del 52
+    if (rest.startsWith('1')) {
+      push('52' + rest.slice(1)); // Sin el 1
+    } else {
+      push('521' + rest); // Con el 1
     }
   }
 
-  // 3. Remove a leading 0 after each plausible country-code length
+  // 4. Limpieza segura para el resto de países (Solo quitar ceros, NO inventarlos)
+  // Revisa los primeros 1, 2 o 3 dígitos y si hay un 0 después, lo quita.
   for (const ccLen of [1, 2, 3]) {
-    if (sanitized.length <= ccLen + 1) continue
-    const cc = sanitized.slice(0, ccLen)
-    const rest = sanitized.slice(ccLen)
+    if (sanitized.length <= ccLen + 1) continue;
+    const cc = sanitized.slice(0, ccLen);
+    const rest = sanitized.slice(ccLen);
     if (rest.startsWith('0')) {
-      push(cc + rest.slice(1))
+      push(cc + rest.slice(1));
     }
   }
 
-  return [...seen]
+  return [...seen];
 }
 
 /**
