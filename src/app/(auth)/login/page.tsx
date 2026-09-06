@@ -3,25 +3,12 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { MessageSquare, UsersRound } from "lucide-react";
+import { MessageSquare, UsersRound, ArrowRight } from "lucide-react";
 
-// `useSearchParams` opts the component out of static prerendering
-// unless it sits under a Suspense boundary. We split the form into
-// a child component so the outer page can prerender the chrome
-// (background, card frame) while the form hydrates with the query
-// string on the client.
 export default function LoginPage() {
   return (
     <Suspense fallback={null}>
@@ -32,11 +19,7 @@ export default function LoginPage() {
 
 function LoginPageInner() {
   const searchParams = useSearchParams();
-  // Forwarded from `/join/<token>` when the visitor already has an
-  // account. After a successful sign-in we send them to the join
-  // page to accept rather than to /dashboard.
   const inviteToken = searchParams.get("invite");
-  const t = useTranslations("LoginPage");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -55,19 +38,11 @@ function LoginPageInner() {
     });
 
     if (error) {
-      setError(error.message);
+      setError("Credenciales incorrectas o ha ocurrido un error.");
       setLoading(false);
       return;
     }
 
-    // Full-page navigation (not router.push) so the browser issues a
-    // fresh top-level request that carries the just-written Supabase
-    // auth cookies to the middleware gating /dashboard. A soft
-    // client-side navigation can reach the protected route before the
-    // server observes the new session, so the middleware bounces it
-    // back to /login — which looks like the page "just refreshing"
-    // instead of signing in (issue #365). Mirrors the deliberate full
-    // reload the invite-accept flow already uses in join/[token].
     const destination = inviteToken
       ? `/join/${encodeURIComponent(inviteToken)}`
       : "/dashboard";
@@ -75,95 +50,128 @@ function LoginPageInner() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md border-border bg-card">
-        <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            {inviteToken ? (
-              <UsersRound className="h-6 w-6 text-primary" />
-            ) : (
-              <MessageSquare className="h-6 w-6 text-primary" />
-            )}
+    <div className="flex min-h-screen w-full bg-background">
+      {/* Panel Izquierdo - Visual/Branding (Oculto en móviles) */}
+      <div className="relative hidden w-1/2 flex-col justify-between border-r border-border bg-muted/30 p-12 lg:flex overflow-hidden">
+        {/* Efectos de fondo sutiles */}
+        <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-primary/5 blur-3xl" />
+
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg">
+            <MessageSquare className="h-5 w-5" />
           </div>
-          <CardTitle className="text-xl text-foreground">
-            {inviteToken ? t('titleAccept') : t('titleWelcome')}
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            {inviteToken
-              ? t('descAccept')
-              : t('descWelcome')}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="flex flex-col gap-4">
+          <span className="text-xl font-bold tracking-tight text-foreground">
+            CRM LogaByte
+          </span>
+        </div>
+
+        <div className="relative z-10 mt-auto max-w-md">
+          <h1 className="text-4xl font-semibold tracking-tight text-foreground mb-4">
+            Gestión de WhatsApp simplificada.
+          </h1>
+          <p className="text-lg text-muted-foreground">
+            Centraliza la comunicación de tu equipo, atiende a tus clientes más rápido y mejora tus conversiones desde un solo lugar.
+          </p>
+        </div>
+      </div>
+
+      {/* Panel Derecho - Formulario */}
+      <div className="flex flex-1 flex-col justify-center px-6 py-12 sm:px-12 lg:w-1/2 lg:px-16 xl:px-24">
+        <div className="mx-auto w-full max-w-sm lg:max-w-md">
+          
+          {/* Header del Formulario */}
+          <div className="mb-8">
+            {/* Logo visible solo en móvil */}
+            <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 lg:hidden">
+              <MessageSquare className="h-6 w-6 text-primary" />
+            </div>
+            
+            <h2 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              {inviteToken ? (
+                <>
+                  <UsersRound className="h-7 w-7 text-primary" />
+                  Aceptar invitación
+                </>
+              ) : (
+                "Bienvenido de nuevo"
+              )}
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {inviteToken
+                ? "Inicia sesión para unirte a tu equipo de trabajo."
+                : "Ingresa tus credenciales para acceder a tu panel de control."}
+            </p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-6">
             {error && (
-              <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-500">
                 {error}
               </div>
             )}
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email" className="text-muted-foreground">
-                {t('emailLabel')}
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder={t('emailPlaceholder')}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-muted-foreground">
-                  {t('passwordLabel')}
-                </Label>
-                <Link
-                  href="/forgot-password"
-                  className="text-sm text-primary hover:text-primary/80"
-                >
-                  {t('forgotPassword')}
-                </Link>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Correo electrónico</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="tu@ejemplo.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="h-11 bg-muted/50 focus-visible:bg-transparent"
+                />
               </div>
-              <Input
-                id="password"
-                type="password"
-                placeholder={t('passwordPlaceholder')}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Contraseña</Label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm font-medium text-primary hover:underline hover:text-primary/80"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </Link>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="h-11 bg-muted/50 focus-visible:bg-transparent"
+                />
+              </div>
             </div>
 
             <Button
               type="submit"
               disabled={loading}
-              className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className="group h-11 w-full text-base"
             >
-              {loading ? t('signingIn') : t('signIn')}
+              {loading ? "Iniciando sesión..." : "Iniciar sesión"}
+              {!loading && <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />}
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            {t('noAccount')}{" "}
+          <div className="mt-8 text-center text-sm">
+            <span className="text-muted-foreground">¿No tienes una cuenta? </span>
             <Link
               href={
                 inviteToken
                   ? `/signup?invite=${encodeURIComponent(inviteToken)}`
                   : "/signup"
               }
-              className="text-primary hover:text-primary/80"
+              className="font-medium text-primary hover:underline"
             >
-              {t('createAccount')}
+              Regístrate aquí
             </Link>
-          </p>
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
