@@ -1110,7 +1110,7 @@ export function MessageThread({
       {/* Messages Area */}
       <div
         ref={scrollRef}
-        className="flex-1 [scrollbar-width:none] overflow-y-auto px-4 py-4 [&::-webkit-scrollbar]:hidden"
+        className="scrollbar-chat flex-1 overflow-y-auto px-4 py-4"
       >
         {loading ? (
           <div className="flex items-center justify-center py-12">

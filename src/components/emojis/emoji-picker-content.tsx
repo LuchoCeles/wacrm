@@ -9,7 +9,11 @@ import Picker, {
   type Theme,
 } from 'emoji-picker-react';
 import spanishEmojiData from 'emoji-picker-react/dist/data/emojis-es.js';
-import type { Categories, EmojiData } from 'emoji-picker-react/dist/types/exposedTypes';
+import type {
+  Categories,
+  EmojiData,
+} from 'emoji-picker-react/dist/types/exposedTypes';
+import { useTheme } from '@/hooks/use-theme';
 import { registerEmojiUsage } from '@/lib/emojis/usage';
 
 const category = (value: string) => value as Categories;
@@ -38,9 +42,12 @@ const pickerStyle = {
   '--epr-bg-color': 'var(--popover)',
   '--epr-text-color': 'var(--popover-foreground)',
   '--epr-picker-border-color': 'var(--border)',
-  '--epr-search-input-bg-color': 'var(--muted)',
+  '--epr-search-input-bg-color': 'var(--card)',
+  '--epr-search-input-bg-color-active': 'var(--card)',
   '--epr-search-input-text-color': 'var(--foreground)',
   '--epr-search-input-placeholder-color': 'var(--muted-foreground)',
+  '--epr-search-border-color': 'var(--border)',
+  '--epr-search-border-color-active': 'var(--primary)',
   '--epr-category-label-bg-color': 'var(--popover)',
   '--epr-category-label-text-color': 'var(--muted-foreground)',
   '--epr-hover-bg-color': 'var(--muted)',
@@ -51,6 +58,9 @@ const pickerStyle = {
   '--epr-picker-border-radius': '12px',
   '--epr-search-input-height': '36px',
   '--epr-category-navigation-button-size': '28px',
+  '--epr-skin-tone-picker-menu-color': 'var(--popover)',
+  '--epr-skin-tone-outer-border-color': 'var(--border)',
+  '--epr-skin-tone-inner-border-color': 'var(--popover)',
 } as CSSProperties;
 
 interface EmojiPickerContentProps {
@@ -59,6 +69,8 @@ interface EmojiPickerContentProps {
 
 /** The deferred, full Unicode catalog and Spanish search dataset. */
 export function EmojiPickerContent({ onEmojiSelect }: EmojiPickerContentProps) {
+  const { mode } = useTheme();
+
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     registerEmojiUsage(emojiData.emoji);
     onEmojiSelect(emojiData.emoji);
@@ -68,7 +80,8 @@ export function EmojiPickerContent({ onEmojiSelect }: EmojiPickerContentProps) {
     <Picker
       emojiData={emojiData}
       onEmojiClick={handleEmojiClick}
-      theme={'dark' as Theme}
+      className="emoji-picker scrollbar-emoji"
+      theme={(mode === 'dark' ? 'dark' : 'light') as Theme}
       emojiStyle={'native' as EmojiStyle}
       suggestedEmojisMode={'frequent' as SuggestionMode}
       searchPlaceholder="Buscar emoji"

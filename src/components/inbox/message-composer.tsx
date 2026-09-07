@@ -706,7 +706,7 @@ export function MessageComposer({
       ) : (
         <div className="flex items-end gap-2">
           <div className="border-border bg-muted/70 relative flex-1 rounded-2xl border shadow-sm">
-            <div className="border-border/70 bg-muted absolute bottom-1.5 left-1.5 z-10 flex items-center gap-0.5 rounded-xl border p-0.5 shadow-sm backdrop-blur-sm">
+            <div className="border-border/70 bg-muted hover:border-primary/50 hover:ring-primary/15 absolute bottom-1.5 left-1.5 z-10 flex items-center gap-0.5 rounded-xl border p-0.5 shadow-sm transition-[border-color,box-shadow] hover:ring-2 backdrop-blur-sm">
               {/* Attach menu — photo / video / document / voice. */}
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -718,7 +718,7 @@ export function MessageComposer({
                         ? undefined
                         : t('attachMedia')
                   }
-                  className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                  className="text-muted-foreground hover:text-foreground inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {busy ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -767,7 +767,7 @@ export function MessageComposer({
                         ? undefined
                         : t('moreActions')
                   }
-                  className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                  className="text-muted-foreground hover:text-foreground inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Plus className="h-4 w-4" />
                 </DropdownMenuTrigger>
@@ -792,7 +792,7 @@ export function MessageComposer({
                 canAct={!readOnly}
                 gateReason="send messages"
                 title={readOnly ? undefined : t('sendTemplate')}
-                className="text-muted-foreground hover:bg-muted hover:text-foreground h-8 w-8 shrink-0 rounded-lg p-0"
+                className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 rounded-lg p-0"
                 onClick={onOpenTemplates}
               >
                 <LayoutTemplate className="h-4 w-4" />
@@ -805,7 +805,7 @@ export function MessageComposer({
                 gateReason="send messages"
                 disabled={drafting}
                 title={readOnly ? undefined : t('draftWithAI')}
-                className="text-muted-foreground hover:bg-muted hover:text-primary h-8 w-8 shrink-0 rounded-lg p-0"
+                className="text-muted-foreground hover:text-primary h-8 w-8 shrink-0 rounded-lg p-0"
                 onClick={handleDraft}
               >
                 {drafting ? (
@@ -834,7 +834,7 @@ export function MessageComposer({
               // The placeholder text also surfaces the read-only state.
               title={readOnly ? t('readOnlyTitle') : undefined}
               className={cn(
-                'text-foreground placeholder-muted-foreground [&::-webkit-scrollbar-thumb]:bg-muted-foreground/50 w-full resize-none [scrollbar-width:thin] rounded-2xl bg-transparent px-4 py-2.5 pr-4 pl-48 text-sm outline-none [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-button]:hidden [&::-webkit-scrollbar-thumb]:rounded-full',
+                'scrollbar-composer text-foreground placeholder-muted-foreground w-full resize-none rounded-2xl bg-transparent px-4 py-2.5 pr-4 pl-48 text-sm outline-none',
                 (sessionExpired || readOnly) && 'cursor-not-allowed opacity-50'
               )}
             />
