@@ -47,6 +47,7 @@ import {
   MessageComposer,
   CHAT_MEDIA_BUCKET,
   type SendMediaPayload,
+  type SendContactPayload,
 } from './message-composer';
 import { deleteAccountMedia } from '@/lib/storage/upload-media';
 import { TemplatePicker } from './template-picker';
@@ -601,6 +602,55 @@ export function MessageThread({
     [conversation, onNewMessage, onUpdateMessage]
   );
 
+  const handleSendContact = useCallback(
+    async (payload: SendContactPayload) => {
+      if (!conversation) return;
+
+      const tempId = `temp-${Date.now()}`;
+      const optimisticMsg: Message = {
+        id: tempId,
+        conversation_id: conversation.id,
+        sender_type: 'agent',
+        content_type: 'contact',
+        content_text: payload.contact.name,
+        contact_payload: payload.contact,
+        status: 'sending',
+        created_at: new Date().toISOString(),
+        reply_to_message_id: payload.replyToId,
+      };
+      onNewMessage(optimisticMsg);
+      setReplyTo(null);
+
+      try {
+        const res = await fetch('/api/whatsapp/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversation_id: conversation.id,
+            message_type: 'contact',
+            shared_contact_id: payload.contact.id,
+            reply_to_message_id: payload.replyToId,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const reason = data?.error || `HTTP ${res.status}`;
+          console.error('Failed to send contact:', reason);
+          toast.error(`Failed to send: ${reason}`);
+          onUpdateMessage(tempId, { status: 'failed' });
+          return;
+        }
+        onUpdateMessage(tempId, { status: 'sent' });
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'network error';
+        console.error('Failed to send contact:', err);
+        toast.error(`Failed to send: ${reason}`);
+        onUpdateMessage(tempId, { status: 'failed' });
+      }
+    },
+    [conversation, onNewMessage, onUpdateMessage]
+  );
+
   const handleSendInteractive = useCallback(
     async (payload: InteractiveMessagePayload, replyToId?: string) => {
       if (!conversation) return;
@@ -1110,7 +1160,7 @@ export function MessageThread({
       {/* Messages Area */}
       <div
         ref={scrollRef}
-        className="scrollbar-chat flex-1 overflow-y-auto px-4 py-4"
+        className="scrollbar-chat flex-1 overflow-y-auto px-4 pt-4 pb-6"
       >
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -1211,6 +1261,7 @@ export function MessageThread({
         sessionExpired={sessionInfo.expired}
         onSend={handleSend}
         onSendMedia={handleSendMedia}
+        onSendContact={handleSendContact}
         onSendInteractive={handleSendInteractive}
         onOpenTemplates={handleOpenTemplates}
         replyTo={replyTo}
