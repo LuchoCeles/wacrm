@@ -45,6 +45,7 @@ function SettingsPageInner() {
   const { defaultCurrency } = useAuth();
   const { mode } = useTheme();
   const t = useTranslations('Settings');
+  const modeLabel = mode === 'light' ? 'Claro' : 'Oscuro';
 
   // The URL (`?tab=`) is the single source of truth for the active
   // section — deep-linkable, and it keeps the existing links in the
@@ -63,10 +64,10 @@ function SettingsPageInner() {
   // already in context.
   const hints: Partial<Record<SettingsSection, ReactNode>> = useMemo(
     () => ({
-      appearance: mode.charAt(0).toUpperCase() + mode.slice(1),
+      appearance: modeLabel,
       deals: defaultCurrency,
     }),
-    [mode, defaultCurrency],
+    [modeLabel, defaultCurrency],
   );
 
   const panel: Record<SettingsSection, ReactNode> = {

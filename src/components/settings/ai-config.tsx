@@ -240,6 +240,9 @@ export function AiConfig() {
   }
 
   const disabled = !canEdit || saving;
+  const selectedHandoffMember = members.find(
+    (member) => member.user_id === handoffAgentId,
+  );
 
   return (
     <div>
@@ -466,10 +469,17 @@ export function AiConfig() {
                 onValueChange={(v) =>
                   setHandoffAgentId(!v || v === HANDOFF_QUEUE ? '' : v)
                 }
-                disabled={disabled || !autoReplyEnabled}
+                // Keep the routing target configurable before auto-reply is
+                // enabled. This lets an admin prepare the handoff route;
+                // it is only used once auto-reply is turned on.
+                disabled={disabled}
               >
                 <SelectTrigger id="ai-handoff">
-                  <SelectValue />
+                  <SelectValue>
+                    {selectedHandoffMember
+                      ? memberLabel(selectedHandoffMember)
+                      : t('handoffQueue')}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={HANDOFF_QUEUE}>

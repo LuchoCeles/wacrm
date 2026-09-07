@@ -39,7 +39,7 @@ export function AppearancePanel() {
 
         <div
           role="radiogroup"
-          aria-label="Color mode"
+          aria-label="Modo de color"
           className="grid max-w-md grid-cols-2 gap-3"
         >
           {MODES.map((m) => (
@@ -95,7 +95,7 @@ function ModeCard({
       role="radio"
       onClick={onPick}
       aria-checked={isActive}
-      aria-label={t("useMode", { mode })}
+      aria-label={t("useMode", { mode: isLight ? "claro" : "oscuro" })}
       className={cn(
         "flex items-center gap-3 rounded-lg border bg-card p-4 text-left transition-colors",
         isActive
@@ -110,7 +110,7 @@ function ModeCard({
         <Icon className="h-4 w-4" />
       </span>
       <span className="flex-1 text-sm font-semibold capitalize text-foreground">
-        {mode}
+        {isLight ? "Claro" : "Oscuro"}
       </span>
       {isActive && (
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
@@ -138,12 +138,19 @@ function ThemeCard({
   onPick: () => void;
 }) {
   const t = useTranslations("Settings.appearance");
+  const copy = {
+    violet: { name: "Violeta", tagline: "El predeterminado: seguro y ligeramente lúdico." },
+    emerald: { name: "Esmeralda", tagline: "Inspirado en el crecimiento y la mensajería." },
+    cobalt: { name: "Cobalto", tagline: "Azul limpio, sereno y profesional." },
+    amber: { name: "Ámbar", tagline: "Cálido y amigable para equipos pequeños." },
+    rose: { name: "Rosa", tagline: "Audaz y moderno." },
+  }[id];
   return (
     <button
       type="button"
       onClick={onPick}
       aria-pressed={isActive}
-      aria-label={t("useTheme", { name })}
+      aria-label={t("useTheme", { name: copy.name })}
       className={cn(
         "flex flex-col gap-3 rounded-lg border bg-card p-4 text-left transition-colors",
         isActive
@@ -168,9 +175,9 @@ function ThemeCard({
         )}
       </div>
       <div>
-        <div className="text-sm font-semibold text-foreground">{name}</div>
+        <div className="text-sm font-semibold text-foreground">{copy.name}</div>
         <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          {tagline}
+          {copy.tagline}
         </div>
       </div>
       <div
@@ -182,7 +189,7 @@ function ThemeCard({
         <span className="w-3 bg-muted" />
         <span className="w-3 bg-card" />
       </div>
-      <span className="sr-only">Theme id: {id}</span>
+      <span className="sr-only">Identificador del tema: {id}</span>
     </button>
   );
 }

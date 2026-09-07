@@ -14,6 +14,7 @@ interface PipelineDonutProps {
 }
 
 import { useTranslations } from 'next-intl'
+import { displayPipelineStageName } from '@/lib/pipelines/display-name'
 
 export function PipelineDonut({ data, loading, currency }: PipelineDonutProps) {
   const t = useTranslations('Dashboard.pipelineDonut')
@@ -46,7 +47,7 @@ export function PipelineDonut({ data, loading, currency }: PipelineDonutProps) {
                     style={{ background: s.color }}
                     aria-hidden
                   />
-                  <span className="flex-1 truncate text-muted-foreground">{s.name}</span>
+                  <span className="flex-1 truncate text-muted-foreground">{displayPipelineStageName(s.name)}</span>
                   <span className="text-muted-foreground tabular-nums">
                     {t('dealCount', { count: s.dealCount })}
                   </span>
