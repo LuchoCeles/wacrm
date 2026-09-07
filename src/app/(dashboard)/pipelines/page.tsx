@@ -30,6 +30,7 @@ import { useCan } from "@/hooks/use-can";
 import { useAuth } from "@/hooks/use-auth";
 import { GatedButton } from "@/components/ui/gated-button";
 import { useTranslations } from "next-intl";
+import { displayPipelineName } from "@/lib/pipelines/display-name";
 
 // Pipeline creation is admin-class (settings-tier write under
 // the new RLS); deal creation is operational and only requires
@@ -38,11 +39,11 @@ import { useTranslations } from "next-intl";
 
 // Spec-defined seed — name and color per the product spec.
 const SPEC_DEFAULT_STAGES = [
-  { name: "New Lead", color: "#3b82f6", position: 0 }, // blue
-  { name: "Qualified", color: "#eab308", position: 1 }, // yellow
-  { name: "Proposal Sent", color: "#f97316", position: 2 }, // orange
-  { name: "Negotiation", color: "#8b5cf6", position: 3 }, // purple
-  { name: "Won", color: "#22c55e", position: 4 }, // green
+  { name: "Nuevo cliente potencial", color: "#3b82f6", position: 0 }, // blue
+  { name: "Calificado", color: "#eab308", position: 1 }, // yellow
+  { name: "Propuesta enviada", color: "#f97316", position: 2 }, // orange
+  { name: "Negociación", color: "#8b5cf6", position: 3 }, // purple
+  { name: "Ganado", color: "#22c55e", position: 4 }, // green
 ];
 
 export default function PipelinesPage() {
@@ -120,7 +121,7 @@ export default function PipelinesPage() {
 
     const { data: pipeline, error } = await supabase
       .from("pipelines")
-      .insert({ user_id: user.id, account_id: accountId, name: "Sales Pipeline" })
+      .insert({ user_id: user.id, account_id: accountId, name: "Proceso de ventas" })
       .select()
       .single();
 
@@ -325,7 +326,7 @@ export default function PipelinesPage() {
             >
               <GitBranch className="h-4 w-4 text-primary" />
               <span className="font-semibold">
-                {selectedPipeline?.name ?? t("selectPipeline")}
+                {selectedPipeline ? displayPipelineName(selectedPipeline.name) : t("selectPipeline")}
               </span>
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </DropdownMenuTrigger>
@@ -349,7 +350,7 @@ export default function PipelinesPage() {
                   }
                 >
                   <GitBranch className="mr-2 h-3.5 w-3.5" />
-                  {p.name}
+                  {displayPipelineName(p.name)}
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator className="bg-border" />

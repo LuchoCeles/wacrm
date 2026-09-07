@@ -55,11 +55,26 @@ export type ActivityKind =
   | 'automation'
   | 'contact'
 
+export type ActivityTextKey =
+  | 'messageReceived'
+  | 'contactCreated'
+  | 'dealInStage'
+  | 'dealUpdated'
+  | 'broadcastSent'
+  | 'broadcastDraft'
+  | 'broadcastScheduled'
+  | 'broadcastSending'
+  | 'broadcastFailed'
+  | 'broadcastStatus'
+  | 'automationFailed'
+  | 'automationTriggered'
+
 export interface ActivityItem {
   id: string
   kind: ActivityKind
-  /** Primary line of text rendered in the feed. Pre-formatted. */
-  text: string
+  /** Translation key and interpolated values rendered in the feed. */
+  textKey: ActivityTextKey
+  textValues: Record<string, string | number>
   /** ISO timestamp the item happened at, drives relative-time + sort. */
   at: string
   /** Optional deep-link for the whole row (not all items have a target). */

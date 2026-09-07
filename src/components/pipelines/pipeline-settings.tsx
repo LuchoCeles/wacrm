@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { displayPipelineName } from "@/lib/pipelines/display-name";
 
 const STAGE_COLORS = [
   "#3b82f6",
@@ -72,7 +73,7 @@ export function PipelineSettings({
   const t = useTranslations("Pipelines.settings");
   const supabase = createClient();
 
-  const [name, setName] = useState(pipeline.name);
+  const [name, setName] = useState(displayPipelineName(pipeline.name));
   const [localStages, setLocalStages] = useState<PipelineStage[]>(stages);
   const [newStageName, setNewStageName] = useState("");
   const [newStageColor, setNewStageColor] = useState(STAGE_COLORS[0]);
@@ -85,7 +86,7 @@ export function PipelineSettings({
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
-    setName(pipeline.name);
+    setName(displayPipelineName(pipeline.name));
     setLocalStages([...stages].sort((a, b) => a.position - b.position));
     setShowDeleteConfirm(false);
   }, [open, pipeline, stages]);

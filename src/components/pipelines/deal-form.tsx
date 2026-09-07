@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { displayPipelineStageName } from "@/lib/pipelines/display-name";
 
 interface DealFormProps {
   open: boolean;
@@ -344,7 +345,7 @@ export function DealForm({
               >
                 {stages.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name}
+                    {displayPipelineStageName(s.name)}
                   </option>
                 ))}
               </select>

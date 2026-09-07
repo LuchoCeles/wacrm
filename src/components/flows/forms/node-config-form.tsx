@@ -676,10 +676,10 @@ function ConditionForm({
                 <SelectValue placeholder={t("pickField")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="name">name</SelectItem>
-                <SelectItem value="email">email</SelectItem>
-                <SelectItem value="phone">phone</SelectItem>
-                <SelectItem value="company">company</SelectItem>
+                <SelectItem value="name">nombre</SelectItem>
+                <SelectItem value="email">correo electrónico</SelectItem>
+                <SelectItem value="phone">teléfono</SelectItem>
+                <SelectItem value="company">empresa</SelectItem>
               </SelectContent>
             </Select>
           ) : (

@@ -21,6 +21,7 @@ import { Plus } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { formatCurrency } from "@/lib/currency";
 import { useTranslations } from "next-intl";
+import { displayPipelineStageName } from "@/lib/pipelines/display-name";
 
 interface PipelineBoardProps {
   stages: PipelineStage[];
@@ -219,7 +220,7 @@ function StageColumn({
       />
       <div className="flex items-center justify-between pt-3">
         <h3 className="truncate text-sm font-semibold text-foreground">
-          {stage.name}
+          {displayPipelineStageName(stage.name)}
         </h3>
         <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
           {deals.length}
