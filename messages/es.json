@@ -194,12 +194,14 @@
       "noCustomerMessages": "No hay mensajes del cliente"
     },
     "composer": {
-      "draftHint": "Toca el ✨ para redactar una respuesta con IA — puedes editarla antes de enviar",
       "sessionExpiredHint": "La sesión de 24 horas expiró. Usa una plantilla para retomar el contacto.",
       "templates": "Plantillas",
       "readOnlyPlaceholder": "Solo lectura — los espectadores pueden navegar pero no responder",
       "sessionExpiredPlaceholder": "Sesión expirada - usa una plantilla",
-      "typeMessagePlaceholder": "Escribe un mensaje... (Shift+Enter para nueva línea)",
+      "typeMessagePlaceholder": "Escribe un mensaje",
+      "insertEmoji": "Insertar emoji",
+      "insertEmojiValue": "Insertar {emoji}",
+      "emojiPickerTitle": "Emojis",
       "readOnlyTitle": "Solo lectura — tu rol no puede enviar mensajes",
       "recording": "Grabando… {current} / {max}",
       "cancel": "Cancelar",
