@@ -67,9 +67,8 @@ export default function NewBroadcastPage() {
     } catch (err) {
       // Previously swallowed with console.error — the wizard would
       // just no-op, leaving the user confused. Surface the reason.
-      const message = err instanceof Error ? err.message : 'Broadcast failed';
       console.error('Broadcast failed:', err);
-      toast.error(message);
+      toast.error('No se pudo crear la difusión.');
     }
   }
 
@@ -122,7 +121,7 @@ export default function NewBroadcastPage() {
     });
 
     if (error) {
-      toast.error(t('toastFailedDraft', { error: error.message }));
+      toast.error('No se pudo guardar el borrador.');
       return;
     }
     toast.success(t('toastDraftSaved'));

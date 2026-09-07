@@ -71,7 +71,7 @@ export function AiUsageCard() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        toast.error(json?.error ?? 'No se pudo cargar el uso');
+        toast.error('No se pudo cargar el uso');
         setData(null);
         return;
       }

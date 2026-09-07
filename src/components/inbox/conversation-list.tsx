@@ -10,8 +10,9 @@ import {
 import { cn } from "@/lib/utils";
 import type { Conversation, ConversationStatus, Tag } from "@/types";
 import { Search, ChevronDown, X } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { useTranslations } from "next-intl";
+import { formatDistanceToNow, type Locale } from "date-fns";
+import { enUS, es, ko } from "date-fns/locale";
+import { useLocale, useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -54,6 +55,8 @@ export function ConversationList({
   resyncToken = 0,
 }: ConversationListProps) {
   const t = useTranslations("Inbox.conversationList");
+  const locale = useLocale();
+  const dateLocale = locale === "es" ? es : locale === "ko" ? ko : enUS;
   
   const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(() => [
     { label: t("filterAll"), value: "all" },
@@ -414,6 +417,7 @@ export function ConversationList({
                 isActive={conv.id === activeConversationId}
                 onSelect={handleSelect}
                 t={t}
+                dateLocale={dateLocale}
               />
             ))}
           </div>
@@ -428,6 +432,7 @@ interface ConversationItemProps {
   isActive: boolean;
   onSelect: (conversation: Conversation) => void;
   t: ReturnType<typeof useTranslations>;
+  dateLocale: Locale;
 }
 
 function ConversationItem({
@@ -435,6 +440,7 @@ function ConversationItem({
   isActive,
   onSelect,
   t,
+  dateLocale,
 }: ConversationItemProps) {
   const contact = conversation.contact;
   const displayName = contact?.name || contact?.phone || t("unknown");
@@ -447,6 +453,7 @@ function ConversationItem({
   const timeAgo = conversation.last_message_at
     ? formatDistanceToNow(new Date(conversation.last_message_at), {
         addSuffix: false,
+        locale: dateLocale,
       })
     : "";
 

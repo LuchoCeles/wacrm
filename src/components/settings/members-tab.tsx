@@ -150,8 +150,7 @@ export function MembersTab() {
       ]);
 
       if (!mres.ok) {
-        const payload = await mres.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to load members');
+        toast.error('No se pudieron cargar los miembros del equipo.');
         return;
       }
       const mdata = (await mres.json()) as { members: Member[] };
@@ -159,8 +158,7 @@ export function MembersTab() {
 
       if (ires) {
         if (!ires.ok) {
-          const payload = await ires.json().catch(() => ({}));
-          toast.error(payload.error || 'Failed to load invitations');
+          toast.error('No se pudieron cargar las invitaciones.');
           return;
         }
         const idata = (await ires.json()) as { invitations: Invitation[] };
@@ -170,7 +168,7 @@ export function MembersTab() {
       }
     } catch (err) {
       console.error('[MembersTab] load error:', err);
-      toast.error('Could not reach the server');
+      toast.error('No se pudo conectar con el servidor.');
     } finally {
       setLoading(false);
     }
@@ -209,8 +207,7 @@ export function MembersTab() {
             m.user_id === member.user_id ? { ...m, role: previousRole } : m,
           ),
         );
-        const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to update role');
+        toast.error('No se pudo actualizar el rol.');
         return;
       }
       toast.success(t('updatedToast', { name: member.full_name || t('unnamed'), role: tRoles(nextRole) }));
@@ -222,7 +219,7 @@ export function MembersTab() {
         ),
       );
       console.error('[MembersTab] role change error:', err);
-      toast.error('Could not reach the server');
+      toast.error('No se pudo conectar con el servidor.');
     } finally {
       setPendingMemberAction(null);
     }
@@ -237,8 +234,7 @@ export function MembersTab() {
         { method: 'DELETE' },
       );
       if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to remove member');
+        toast.error('No se pudo eliminar al miembro.');
         return;
       }
       toast.success(t('removedToast', { name: removingMember.full_name || t('unnamed') }));
@@ -248,7 +244,7 @@ export function MembersTab() {
       setRemovingMember(null);
     } catch (err) {
       console.error('[MembersTab] remove error:', err);
-      toast.error('Could not reach the server');
+      toast.error('No se pudo conectar con el servidor.');
     } finally {
       setPendingMemberAction(null);
     }
@@ -260,15 +256,14 @@ export function MembersTab() {
         method: 'DELETE',
       });
       if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to revoke invitation');
+        toast.error('No se pudo revocar la invitación.');
         return;
       }
       toast.success(t('revokedToast'));
       setInvitations((prev) => prev.filter((i) => i.id !== invite.id));
     } catch (err) {
       console.error('[MembersTab] revoke error:', err);
-      toast.error('Could not reach the server');
+      toast.error('No se pudo conectar con el servidor.');
     }
   }
 

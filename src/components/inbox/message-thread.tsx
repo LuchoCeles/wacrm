@@ -25,8 +25,8 @@ import {
   Clock,
   ArrowLeft,
   RefreshCw,
-  PanelRightOpen,
-  PanelRightClose,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { format, isToday, isYesterday, differenceInHours } from 'date-fns';
 import { useTranslations } from 'next-intl';
@@ -512,7 +512,7 @@ export function MessageThread({
         if (!res.ok) {
           const reason = payload?.error || `HTTP ${res.status}`;
           console.error('Failed to send message:', reason);
-          toast.error(`Failed to send: ${reason}`);
+          toast.error('No se pudo enviar el mensaje.');
           // Mark the optimistic bubble as failed so the user sees what happened
           onUpdateMessage(tempId, { status: 'failed' });
           return;
@@ -525,7 +525,7 @@ export function MessageThread({
       } catch (err) {
         console.error('Failed to send message:', err);
         const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Failed to send: ${reason}`);
+        toast.error('No se pudo enviar el mensaje.');
         onUpdateMessage(tempId, { status: 'failed' });
       }
     },
@@ -578,7 +578,7 @@ export function MessageThread({
         if (!res.ok) {
           const reason = data?.error || `HTTP ${res.status}`;
           console.error('Failed to send media:', reason);
-          toast.error(`Failed to send: ${reason}`);
+          toast.error('No se pudo enviar el mensaje.');
           onUpdateMessage(tempId, { status: 'failed' });
           // The upload never reached the recipient — GC the orphaned
           // object rather than leaving it in the public bucket forever.
@@ -592,7 +592,7 @@ export function MessageThread({
       } catch (err) {
         console.error('Failed to send media:', err);
         const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Failed to send: ${reason}`);
+        toast.error('No se pudo enviar el mensaje.');
         onUpdateMessage(tempId, { status: 'failed' });
         void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(
           () => {}
@@ -636,7 +636,7 @@ export function MessageThread({
         if (!res.ok) {
           const reason = data?.error || `HTTP ${res.status}`;
           console.error('Failed to send contact:', reason);
-          toast.error(`Failed to send: ${reason}`);
+          toast.error('No se pudo enviar el mensaje.');
           onUpdateMessage(tempId, { status: 'failed' });
           return;
         }
@@ -644,7 +644,7 @@ export function MessageThread({
       } catch (err) {
         const reason = err instanceof Error ? err.message : 'network error';
         console.error('Failed to send contact:', err);
-        toast.error(`Failed to send: ${reason}`);
+        toast.error('No se pudo enviar el mensaje.');
         onUpdateMessage(tempId, { status: 'failed' });
       }
     },
@@ -688,7 +688,7 @@ export function MessageThread({
         if (!res.ok) {
           const reason = data?.error || `HTTP ${res.status}`;
           console.error('Failed to send interactive message:', reason);
-          toast.error(`Failed to send: ${reason}`);
+          toast.error('No se pudo enviar el mensaje.');
           onUpdateMessage(tempId, { status: 'failed' });
           return;
         }
@@ -697,7 +697,7 @@ export function MessageThread({
       } catch (err) {
         console.error('Failed to send interactive message:', err);
         const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Failed to send: ${reason}`);
+        toast.error('No se pudo enviar el mensaje.');
         onUpdateMessage(tempId, { status: 'failed' });
       }
     },
@@ -777,7 +777,7 @@ export function MessageThread({
         if (!res.ok) {
           const reason = payload?.error || `HTTP ${res.status}`;
           console.error('Failed to send template:', reason);
-          toast.error(`Failed to send template: ${reason}`);
+          toast.error('No se pudo enviar la plantilla.');
           onUpdateMessage(tempId, { status: 'failed' });
           return;
         }
@@ -786,7 +786,7 @@ export function MessageThread({
       } catch (err) {
         console.error('Failed to send template:', err);
         const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Failed to send template: ${reason}`);
+        toast.error('No se pudo enviar la plantilla.');
         onUpdateMessage(tempId, { status: 'failed' });
       }
     },
@@ -850,7 +850,7 @@ export function MessageThread({
         return;
       }
       if (messageId.startsWith('temp-')) {
-        toast.error('Wait for the message to finish sending');
+        toast.error('Esperá a que termine de enviarse el mensaje.');
         return;
       }
 
@@ -896,7 +896,7 @@ export function MessageThread({
         }
       } catch (err) {
         const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Reaction failed: ${reason}`);
+        toast.error('No se pudo actualizar la reacción.');
         setReactions(snapshot);
       }
     },
@@ -915,7 +915,7 @@ export function MessageThread({
 
       if (error) {
         console.error('Failed to update assignment:', error);
-        toast.error('Failed to update assignment');
+        toast.error('No se pudo actualizar la asignación.');
         return;
       }
 
@@ -985,17 +985,53 @@ export function MessageThread({
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
-          <div className="bg-muted text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-medium">
-            {displayName.charAt(0).toUpperCase()}
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-foreground truncate text-sm font-semibold">
-              {displayName}
-            </h2>
-            <p className="text-muted-foreground truncate text-xs">
-              {contact.phone}
-            </p>
-          </div>
+          {onToggleContactPanel ? (
+            <button
+              type="button"
+              onClick={onToggleContactPanel}
+              aria-expanded={contactPanelOpen}
+              aria-label={
+                contactPanelOpen ? t('hideContactPanel') : t('showContactPanel')
+              }
+              title={contactPanelOpen ? t('hideContact') : t('showContact')}
+              className="group hover:text-foreground focus-visible:ring-ring flex min-w-0 items-center gap-2 rounded-sm text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:gap-3"
+            >
+              <span className="bg-muted text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-medium">
+                {displayName.charAt(0).toUpperCase()}
+              </span>
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="min-w-0">
+                  <span className="text-foreground block truncate text-sm font-semibold">
+                    {displayName}
+                  </span>
+                  <span className="text-muted-foreground group-hover:text-foreground/80 block truncate text-xs transition-colors">
+                    {contact.phone}
+                  </span>
+                </span>
+                <span className="text-muted-foreground group-hover:text-foreground flex-shrink-0 transition-colors">
+                  {contactPanelOpen ? (
+                    <ChevronLeft className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </span>
+              </span>
+            </button>
+          ) : (
+            <>
+              <div className="bg-muted text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-medium">
+                {displayName.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-foreground truncate text-sm font-semibold">
+                  {displayName}
+                </h2>
+                <p className="text-muted-foreground truncate text-xs">
+                  {contact.phone}
+                </p>
+              </div>
+            </>
+          )}
           {/* Session timer badge — hidden on the narrowest phones so
               the name + back arrow keep their room. */}
           <Badge
@@ -1011,33 +1047,6 @@ export function MessageThread({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Contact-panel toggle — desktop only. The contact sidebar
-              eats a chunk of horizontal width that crowds the thread on
-              smaller laptops; this lets agents reclaim it when they just
-              want to read and reply. Hidden on mobile, where the sidebar
-              never renders as a permanent panel anyway. Issue #258. */}
-          {onToggleContactPanel && (
-            <button
-              type="button"
-              onClick={onToggleContactPanel}
-              aria-label={
-                contactPanelOpen ? t('hideContactPanel') : t('showContactPanel')
-              }
-              title={contactPanelOpen ? t('hideContact') : t('showContact')}
-              aria-pressed={contactPanelOpen}
-              className={cn(
-                'hover:bg-muted hover:text-foreground hidden h-7 w-7 items-center justify-center rounded-md transition-colors lg:inline-flex',
-                contactPanelOpen ? 'text-primary' : 'text-muted-foreground'
-              )}
-            >
-              {contactPanelOpen ? (
-                <PanelRightClose className="h-4 w-4" />
-              ) : (
-                <PanelRightOpen className="h-4 w-4" />
-              )}
-            </button>
-          )}
-
           {/* Manual refresh — forces a refetch of the messages + the
               conversation list (the parent bumps its resyncToken). Useful
               when realtime missed an event or the agent just wants to be

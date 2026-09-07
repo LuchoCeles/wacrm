@@ -43,9 +43,9 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (data.code === 'ai_not_configured') {
-          toast.error('No agent configured yet — finish Setup first.');
+          toast.error('Todavía no hay un asistente configurado. Completá primero la configuración.');
         } else {
-          toast.error(data.error ?? "No se pudo obtener una respuesta.");
+          toast.error("No se pudo obtener una respuesta.");
         }
         // Roll the unsent user turn back so the transcript stays clean.
         setTurns(turns);

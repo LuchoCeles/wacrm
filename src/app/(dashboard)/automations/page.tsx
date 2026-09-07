@@ -77,7 +77,7 @@ export default function AutomationsPage() {
       if (fetchErr) throw fetchErr
       setAutomations((data ?? []) as Automation[])
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudieron cargar las automatizaciones")
+      setError("No se pudieron cargar las automatizaciones")
     }
   }
 
@@ -101,7 +101,7 @@ export default function AutomationsPage() {
         prev?.map((x) => (x.id === a.id ? { ...x, is_active: !next } : x)) ?? prev,
       )
       const body = await res.json().catch(() => ({}))
-      toast.error(body?.error ?? t("toasts.updateError"))
+      toast.error(t("toasts.updateError"))
       return
     }
     toast.success(next ? t("toasts.activated") : t("toasts.paused"))
@@ -111,7 +111,7 @@ export default function AutomationsPage() {
     const res = await fetch(`/api/automations/${a.id}/duplicate`, { method: "POST" })
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
-      toast.error(body?.error ?? t("toasts.duplicateError"))
+      toast.error(t("toasts.duplicateError"))
       return
     }
     toast.success(t("toasts.duplicated"))
@@ -125,7 +125,7 @@ export default function AutomationsPage() {
     setDeleting(false)
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
-      toast.error(body?.error ?? t("toasts.deleteError"))
+      toast.error(t("toasts.deleteError"))
       return
     }
     toast.success(t("toasts.deleted"))
@@ -169,7 +169,7 @@ export default function AutomationsPage() {
         </div>
         <GatedButton
           canAct={canCreate}
-          gateReason="create automations"
+          gateReason="crear automatizaciones"
           onClick={() => router.push("/automations/new")}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >

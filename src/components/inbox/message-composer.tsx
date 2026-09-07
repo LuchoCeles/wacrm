@@ -6,7 +6,6 @@ import {
   LayoutTemplate,
   Paperclip,
   Image as ImageIcon,
-  Video,
   FileText,
   Mic,
   X,
@@ -115,6 +114,8 @@ const PICKER_ACCEPT: Record<'image' | 'video' | 'document', string> = {
     'application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain',
 };
 
+const PHOTOS_AND_VIDEOS_ACCEPT = `${PICKER_ACCEPT.image},${PICKER_ACCEPT.video}`;
+
 interface MediaDraft {
   kind: ComposerMediaKind;
   mediaUrl: string;
@@ -173,8 +174,7 @@ export function MessageComposer({
   // attachment; `busy` covers the upload/transcode window.
   const [draft, setDraft] = useState<MediaDraft | null>(null);
   const [busy, setBusy] = useState(false);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
+  const photosAndVideosInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
   // Mirror of `draft` for the unmount cleanup, which can't read render
   // state. Kept in sync below so navigating away with a staged-but-unsent
@@ -204,10 +204,12 @@ export function MessageComposer({
   const sendRecordedAudio = useCallback(
     async (file: File) => {
       if (inputsDisabled) {
-        throw new Error('Messages cannot be sent in this conversation.');
+        throw new Error('No se pueden enviar mensajes en esta conversación.');
       }
       if (file.size > MEDIA_MAX_BYTES_BY_KIND.audio) {
-        throw new Error('Recording is too long (over 16 MB).');
+        throw new Error(
+          'La grabación es demasiado extensa (supera los 16 MB).'
+        );
       }
 
       setBusy(true);
@@ -224,9 +226,7 @@ export function MessageComposer({
         });
         onClearReply?.();
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Upload failed.';
-        toast.error(message);
+        toast.error('No se pudo cargar el audio.');
         throw error;
       } finally {
         setBusy(false);
@@ -238,7 +238,7 @@ export function MessageComposer({
   const audioRecorder = useAudioRecorder({
     maxDurationSeconds: MAX_RECORDING_SECONDS,
     onSend: sendRecordedAudio,
-    onError: (message) => toast.error(message),
+    onError: () => toast.error('No se pudo grabar el audio.'),
   });
   const cancelAudioRecording = audioRecorder.cancel;
 
@@ -255,7 +255,7 @@ export function MessageComposer({
       .limit(100)
       .then(({ data, error }) => {
         if (!cancelled) {
-          if (error) toast.error('Could not load contacts.');
+          if (error) toast.error('No se pudieron cargar los contactos.');
           setContacts((data ?? []) as Contact[]);
           setContactsLoading(false);
         }
@@ -374,16 +374,16 @@ export function MessageComposer({
       if (!res.ok) {
         if (data.code === 'ai_not_configured') {
           toast.error(
-            "AI isn't set up yet — enable it in Settings → AI Assistant."
+            'La IA todavía no está configurada. Activala en Configuración → Asistente de IA.'
           );
         } else {
-          toast.error(data.error ?? "Couldn't draft a reply.");
+          toast.error('No se pudo preparar una respuesta.');
         }
         return;
       }
       const draftText = typeof data.draft === 'string' ? data.draft.trim() : '';
       if (!draftText) {
-        toast.error("The assistant didn't return a reply.");
+        toast.error('El asistente no devolvió una respuesta.');
         return;
       }
       setText(draftText);
@@ -398,7 +398,7 @@ export function MessageComposer({
         }
       });
     } catch {
-      toast.error("Couldn't reach the AI assistant.");
+      toast.error('No se pudo conectar con el asistente de IA.');
     } finally {
       setDrafting(false);
     }
@@ -417,7 +417,7 @@ export function MessageComposer({
   const sendInteractive = useCallback(() => {
     const result = validateInteractivePayload(interactivePayload);
     if (!result.ok) {
-      toast.error(result.error);
+      toast.error('Revisá los campos del mensaje interactivo.');
       return;
     }
     onSendInteractive(interactivePayload, replyTo?.id);
@@ -429,7 +429,7 @@ export function MessageComposer({
   const saveAsQuickReply = useCallback(async () => {
     const result = validateInteractivePayload(interactivePayload);
     if (!result.ok) {
-      toast.error(result.error);
+      toast.error('Revisá los campos del mensaje interactivo.');
       return;
     }
     const title = window.prompt(t('quickReplyNamePrompt'))?.trim();
@@ -447,7 +447,7 @@ export function MessageComposer({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? t('quickReplySaveError'));
+        toast.error(t('quickReplySaveError'));
         return;
       }
       toast.success(t('quickReplySaved'));
@@ -494,7 +494,7 @@ export function MessageComposer({
       const max = MEDIA_MAX_BYTES_BY_KIND[kind];
       if (file.size > max) {
         toast.error(
-          `File is ${(file.size / 1024 / 1024).toFixed(1)} MB — ${kind} limit is ${Math.round(
+          `El archivo pesa ${(file.size / 1024 / 1024).toFixed(1)} MB y el límite para ${kind} es de ${Math.round(
             max / 1024 / 1024
           )} MB.`
         );
@@ -516,7 +516,8 @@ export function MessageComposer({
           caption: '',
         });
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Upload failed.');
+        console.error('No se pudo cargar el archivo:', err);
+        toast.error('No se pudo cargar el archivo.');
       } finally {
         setBusy(false);
       }
@@ -529,6 +530,16 @@ export function MessageComposer({
       if (file) void stageUpload(kind, file);
     },
     [stageUpload]
+  );
+
+  const handlePhotosAndVideosPicked = useCallback(
+    (file: File | undefined) => {
+      if (!file) return;
+
+      const kind = file.type.startsWith('image/') ? 'image' : 'video';
+      handlePicked(kind, file);
+    },
+    [handlePicked]
   );
 
   // ---- Voice recording (client-side Ogg/Opus, no server transcode) ---
@@ -594,17 +605,27 @@ export function MessageComposer({
       .some((value) => value!.toLocaleLowerCase().includes(query));
   });
 
+  // Reply and session-expired states add content above the writing controls.
+  // They therefore share the less-rounded outer shell instead of allowing the
+  // normal pill shape to curve through an internal panel.
+  const hasTopPanel = Boolean(replyTo) || sessionExpired;
+
   // ---- Render --------------------------------------------------------
 
   return (
     <div
       className={cn(
-        'border-border/70 bg-card/95 supports-[backdrop-filter]:bg-card/85 relative z-10 mx-2 mb-2 border p-1.5 shadow-sm shadow-black/5 backdrop-blur sm:mb-2.5',
-        replyTo ? 'rounded-[20px]' : 'rounded-full'
+        'border-border/70 bg-card/95 supports-[backdrop-filter]:bg-card/85 relative z-10 mx-2 mb-2 border shadow-sm shadow-black/5 backdrop-blur sm:mb-2.5',
+        hasTopPanel ? 'overflow-hidden rounded-[20px]' : 'rounded-full p-1.5'
       )}
     >
       {replyTo && (
-        <div className="mb-2 px-1 pt-1">
+        <div
+          className={cn(
+            'px-2.5 pt-2.5',
+            sessionExpired ? 'border-border/70 border-b pb-2.5' : 'mb-2'
+          )}
+        >
           <ReplyQuote
             authorLabel={replyTo.authorLabel}
             preview={replyTo.preview}
@@ -613,7 +634,7 @@ export function MessageComposer({
         </div>
       )}
       {sessionExpired && (
-        <div className="mb-2 flex items-center justify-between rounded-xl bg-amber-500/10 px-3 py-2">
+        <div className="border-border/70 flex items-center justify-between rounded-t-[19px] rounded-b-none border-b bg-amber-500/10 px-3 py-2">
           <p className="text-xs text-amber-400">{t('sessionExpiredHint')}</p>
           <Button
             variant="ghost"
@@ -627,256 +648,254 @@ export function MessageComposer({
         </div>
       )}
 
-      {/* Hidden file inputs driven by the attach menu. */}
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept={PICKER_ACCEPT.image}
-        className="hidden"
-        onChange={(e) => {
-          handlePicked('image', e.target.files?.[0]);
-          e.target.value = '';
-        }}
-      />
-      <input
-        ref={videoInputRef}
-        type="file"
-        accept={PICKER_ACCEPT.video}
-        className="hidden"
-        onChange={(e) => {
-          handlePicked('video', e.target.files?.[0]);
-          e.target.value = '';
-        }}
-      />
-      <input
-        ref={documentInputRef}
-        type="file"
-        accept={PICKER_ACCEPT.document}
-        className="hidden"
-        onChange={(e) => {
-          handlePicked('document', e.target.files?.[0]);
-          e.target.value = '';
-        }}
-      />
-
-      {draft ? (
-        <MediaDraftPreview
-          draft={draft}
-          busy={busy}
-          readOnly={readOnly}
-          onCaptionChange={setCaption}
-          onDiscard={discardDraft}
-          onSend={sendDraft}
-          t={t}
-        />
-      ) : audioRecorder.status !== 'idle' ? (
-        <AudioRecordingControls
-          durationSeconds={audioRecorder.durationSeconds}
-          labels={{
-            cancel: t('cancelRecording'),
-            pause: t('pauseRecording'),
-            pausePlayback: t('pausePlayback'),
-            play: t('playAudio'),
-            resume: t('resumeRecording'),
-            seek: t('seekAudio'),
-            send: t('sendAudio'),
+      <div
+        className={cn(
+          sessionExpired
+            ? 'rounded-t-none rounded-b-[19px] p-1.5'
+            : replyTo
+              ? 'rounded-t-none rounded-b-[19px] px-1.5 pb-1.5'
+              : undefined
+        )}
+      >
+        {/* Hidden file inputs driven by the attach menu. */}
+        <input
+          ref={photosAndVideosInputRef}
+          type="file"
+          accept={PHOTOS_AND_VIDEOS_ACCEPT}
+          className="hidden"
+          onChange={(e) => {
+            handlePhotosAndVideosPicked(e.target.files?.[0]);
+            e.target.value = '';
           }}
-          onCancel={audioRecorder.cancel}
-          onPause={audioRecorder.pause}
-          onPlaybackError={() => toast.error(t('voicePlaybackError'))}
-          onResume={audioRecorder.resume}
-          onSend={audioRecorder.send}
-          previewUrl={audioRecorder.previewUrl}
-          status={audioRecorder.status}
-          waveform={audioRecorder.waveform}
         />
-      ) : (
-        <div className="flex min-h-11 items-center gap-1 sm:gap-1.5">
-          <div className="flex shrink-0 items-center gap-0 sm:gap-0.5">
-            {/* Attach menu — photo / video / document / voice. */}
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                disabled={inputsDisabled || busy}
-                title={
-                  readOnly
-                    ? t('readOnlyTitle')
-                    : inputsDisabled
-                      ? undefined
-                      : t('attachMedia')
-                }
-                className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+        <input
+          ref={documentInputRef}
+          type="file"
+          accept={PICKER_ACCEPT.document}
+          className="hidden"
+          onChange={(e) => {
+            handlePicked('document', e.target.files?.[0]);
+            e.target.value = '';
+          }}
+        />
+
+        {draft ? (
+          <MediaDraftPreview
+            draft={draft}
+            busy={busy}
+            readOnly={readOnly}
+            onCaptionChange={setCaption}
+            onDiscard={discardDraft}
+            onSend={sendDraft}
+            t={t}
+          />
+        ) : audioRecorder.status !== 'idle' ? (
+          <AudioRecordingControls
+            durationSeconds={audioRecorder.durationSeconds}
+            labels={{
+              cancel: t('cancelRecording'),
+              pause: t('pauseRecording'),
+              pausePlayback: t('pausePlayback'),
+              play: t('playAudio'),
+              resume: t('resumeRecording'),
+              seek: t('seekAudio'),
+              send: t('sendAudio'),
+            }}
+            onCancel={audioRecorder.cancel}
+            onPause={audioRecorder.pause}
+            onPlaybackError={() => toast.error(t('voicePlaybackError'))}
+            onResume={audioRecorder.resume}
+            onSend={audioRecorder.send}
+            previewUrl={audioRecorder.previewUrl}
+            status={audioRecorder.status}
+            waveform={audioRecorder.waveform}
+          />
+        ) : (
+          <div className="flex min-h-11 items-center gap-1 sm:gap-1.5">
+            <div className="flex shrink-0 items-center gap-0 sm:gap-0.5">
+              {/* Attach menu — photos/videos, document, and contact. */}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  disabled={inputsDisabled || busy}
+                  title={
+                    readOnly
+                      ? t('readOnlyTitle')
+                      : inputsDisabled
+                        ? undefined
+                        : t('attachMedia')
+                  }
+                  className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {busy ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Paperclip className="h-4 w-4" />
+                  )}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="border-border bg-popover min-w-40"
+                >
+                  <DropdownMenuItem
+                    onClick={() => photosAndVideosInputRef.current?.click()}
+                  >
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                    {t('photosAndVideos')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => documentInputRef.current?.click()}
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    {t('document')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setContactPickerOpen(true)}>
+                    <ContactRound className="mr-2 h-4 w-4" />
+                    {t('contact')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* + menu — interactive messages + quick replies. Gated on the
+              24h window like free-form text (interactive requires it). */}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  disabled={inputsDisabled}
+                  title={
+                    readOnly
+                      ? t('readOnlyTitle')
+                      : inputsDisabled
+                        ? undefined
+                        : t('moreActions')
+                  }
+                  className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Plus className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="border-border bg-popover"
+                >
+                  <DropdownMenuItem onClick={() => openInteractiveBuilder()}>
+                    <MessageSquareDashed className="mr-2 h-4 w-4" />
+                    {t('interactiveMessage')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setQuickReplyOpen(true)}>
+                    <Zap className="mr-2 h-4 w-4" />
+                    {t('quickReplies')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <GatedButton
+                variant="ghost"
+                size="sm"
+                canAct={!readOnly}
+                gateReason="enviar mensajes"
+                title={readOnly ? undefined : t('sendTemplate')}
+                className="text-muted-foreground hover:bg-muted hover:text-foreground h-9 w-9 shrink-0 rounded-full p-0"
+                onClick={onOpenTemplates}
               >
-                {busy ? (
+                <LayoutTemplate className="h-4 w-4" />
+              </GatedButton>
+
+              <GatedButton
+                variant="ghost"
+                size="sm"
+                canAct={!readOnly}
+                gateReason="enviar mensajes"
+                disabled={drafting}
+                title={readOnly ? undefined : t('draftWithAI')}
+                className="text-muted-foreground hover:bg-muted hover:text-primary h-9 w-9 shrink-0 rounded-full p-0"
+                onClick={handleDraft}
+              >
+                {drafting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Paperclip className="h-4 w-4" />
+                  <Sparkles className="h-4 w-4" />
                 )}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="border-border bg-popover"
-              >
-                <DropdownMenuItem
-                  onClick={() => imageInputRef.current?.click()}
-                >
-                  <ImageIcon className="mr-2 h-4 w-4" />
-                  {t('photo')}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => videoInputRef.current?.click()}
-                >
-                  <Video className="mr-2 h-4 w-4" />
-                  {t('video')}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => documentInputRef.current?.click()}
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  {t('document')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setContactPickerOpen(true)}>
-                  <ContactRound className="mr-2 h-4 w-4" />
-                  {t('contact')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* + menu — interactive messages + quick replies. Gated on the
-              24h window like free-form text (interactive requires it). */}
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                disabled={inputsDisabled}
-                title={
-                  readOnly
-                    ? t('readOnlyTitle')
-                    : inputsDisabled
-                      ? undefined
-                      : t('moreActions')
-                }
-                className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Plus className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="border-border bg-popover"
-              >
-                <DropdownMenuItem onClick={() => openInteractiveBuilder()}>
-                  <MessageSquareDashed className="mr-2 h-4 w-4" />
-                  {t('interactiveMessage')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setQuickReplyOpen(true)}>
-                  <Zap className="mr-2 h-4 w-4" />
-                  {t('quickReplies')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <GatedButton
-              variant="ghost"
-              size="sm"
-              canAct={!readOnly}
-              gateReason="send messages"
-              title={readOnly ? undefined : t('sendTemplate')}
-              className="text-muted-foreground hover:bg-muted hover:text-foreground h-9 w-9 shrink-0 rounded-full p-0"
-              onClick={onOpenTemplates}
-            >
-              <LayoutTemplate className="h-4 w-4" />
-            </GatedButton>
-
-            <GatedButton
-              variant="ghost"
-              size="sm"
-              canAct={!readOnly}
-              gateReason="send messages"
-              disabled={drafting}
-              title={readOnly ? undefined : t('draftWithAI')}
-              className="text-muted-foreground hover:bg-muted hover:text-primary h-9 w-9 shrink-0 rounded-full p-0"
-              onClick={handleDraft}
-            >
-              {drafting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-            </GatedButton>
-          </div>
-          <span
-            aria-hidden="true"
-            className="border-border/60 mx-1 h-7 shrink-0 border-l"
-          />
-          <Popover open={emojiPickerOpen} onOpenChange={setEmojiPickerOpen}>
-            <PopoverTrigger
-              type="button"
-              disabled={inputsDisabled}
-              aria-label={t('insertEmoji')}
-              aria-haspopup="dialog"
-              aria-expanded={emojiPickerOpen}
-              onPointerEnter={preloadEmojiPicker}
-              onFocus={preloadEmojiPicker}
-              title={t('insertEmoji')}
-              className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Smile className="h-5 w-5" />
-            </PopoverTrigger>
-            <PopoverContent
-              side="top"
-              align="start"
-              sideOffset={8}
-              keepMounted
-              className="border-border bg-popover w-[calc(100vw-24px)] max-w-[380px] overflow-hidden p-0"
-            >
-              <EmojiPicker open={emojiPickerOpen} onEmojiSelect={insertEmoji} />
-            </PopoverContent>
-          </Popover>
-          <div className="relative flex min-w-0 flex-1 items-center rounded-md">
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                readOnly
-                  ? t('readOnlyPlaceholder')
-                  : sessionExpired
-                    ? t('sessionExpiredPlaceholder')
-                    : t('typeMessagePlaceholder')
-              }
-              disabled={sessionExpired || readOnly}
-              rows={1}
-              // Textarea keeps its own inline title — the GatedButton
-              // wrapping pattern doesn't apply to non-button inputs.
-              // The placeholder text also surfaces the read-only state.
-              title={readOnly ? t('readOnlyTitle') : undefined}
-              style={{ caretColor: 'var(--primary)' }}
-              className={cn(
-                'scrollbar-composer text-foreground placeholder-muted-foreground min-h-11 w-full resize-none bg-transparent px-1 py-2.5 text-sm outline-none',
-                (sessionExpired || readOnly) && 'cursor-not-allowed opacity-50'
-              )}
+              </GatedButton>
+            </div>
+            <span
+              aria-hidden="true"
+              className="border-border/60 mx-1 h-7 shrink-0 border-l"
             />
+            <Popover open={emojiPickerOpen} onOpenChange={setEmojiPickerOpen}>
+              <PopoverTrigger
+                type="button"
+                disabled={inputsDisabled}
+                aria-label={t('insertEmoji')}
+                aria-haspopup="dialog"
+                aria-expanded={emojiPickerOpen}
+                onPointerEnter={preloadEmojiPicker}
+                onFocus={preloadEmojiPicker}
+                title={t('insertEmoji')}
+                className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Smile className="h-5 w-5" />
+              </PopoverTrigger>
+              <PopoverContent
+                side="top"
+                align="start"
+                sideOffset={8}
+                keepMounted
+                className="border-border bg-popover w-[calc(100vw-24px)] max-w-[380px] overflow-hidden p-0"
+              >
+                <EmojiPicker
+                  open={emojiPickerOpen}
+                  onEmojiSelect={insertEmoji}
+                />
+              </PopoverContent>
+            </Popover>
+            <div className="relative flex min-w-0 flex-1 items-center rounded-md">
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  readOnly
+                    ? t('readOnlyPlaceholder')
+                    : sessionExpired
+                      ? t('sessionExpiredPlaceholder')
+                      : t('typeMessagePlaceholder')
+                }
+                disabled={sessionExpired || readOnly}
+                rows={1}
+                // Textarea keeps its own inline title — the GatedButton
+                // wrapping pattern doesn't apply to non-button inputs.
+                // The placeholder text also surfaces the read-only state.
+                title={readOnly ? t('readOnlyTitle') : undefined}
+                style={{ caretColor: 'var(--primary)' }}
+                className={cn(
+                  'scrollbar-composer text-foreground placeholder-muted-foreground min-h-11 w-full resize-none bg-transparent px-1 py-2.5 text-sm outline-none',
+                  (sessionExpired || readOnly) &&
+                    'cursor-not-allowed opacity-50'
+                )}
+              />
+            </div>
+            <GatedButton
+              size="sm"
+              canAct={!readOnly}
+              gateReason="enviar mensajes"
+              disabled={
+                text.trim()
+                  ? sessionExpired || sending
+                  : inputsDisabled || busy || audioRecorder.status !== 'idle'
+              }
+              onClick={text.trim() ? handleSend : startRecording}
+              title={text.trim() ? t('send') : t('voiceNote')}
+              aria-label={text.trim() ? t('send') : t('voiceNote')}
+              className="bg-primary hover:bg-primary/90 shadow-primary/20 h-10 w-10 shrink-0 rounded-full p-0 shadow-sm disabled:opacity-40 sm:h-11 sm:w-11"
+            >
+              {text.trim() ? (
+                <Send className="h-5 w-5" />
+              ) : (
+                <Mic className="h-5 w-5" />
+              )}
+            </GatedButton>
           </div>
-          <GatedButton
-            size="sm"
-            canAct={!readOnly}
-            gateReason="send messages"
-            disabled={
-              text.trim()
-                ? sessionExpired || sending
-                : inputsDisabled || busy || audioRecorder.status !== 'idle'
-            }
-            onClick={text.trim() ? handleSend : startRecording}
-            title={text.trim() ? t('send') : t('voiceNote')}
-            aria-label={text.trim() ? t('send') : t('voiceNote')}
-            className="bg-primary hover:bg-primary/90 shadow-primary/20 h-10 w-10 shrink-0 rounded-full p-0 shadow-sm disabled:opacity-40 sm:h-11 sm:w-11"
-          >
-            {text.trim() ? (
-              <Send className="h-5 w-5" />
-            ) : (
-              <Mic className="h-5 w-5" />
-            )}
-          </GatedButton>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Interactive-message builder dialog. */}
       <Dialog open={interactiveOpen} onOpenChange={setInteractiveOpen}>
@@ -1051,7 +1070,7 @@ function MediaDraftPreview({
         <GatedButton
           size="sm"
           canAct={!readOnly}
-          gateReason="send messages"
+          gateReason="enviar mensajes"
           disabled={busy}
           onClick={onSend}
           className={cn(

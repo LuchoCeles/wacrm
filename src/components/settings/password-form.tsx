@@ -66,7 +66,7 @@ export function PasswordForm() {
         password: next,
       });
       if (updateError) {
-        toast.error(t('passwordUpdateFailed', { message: updateError.message }));
+        toast.error('No se pudo actualizar la contraseña.');
         return;
       }
 
@@ -75,8 +75,7 @@ export function PasswordForm() {
       setConfirm('');
       toast.success(t('passwordUpdated'));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      toast.error(msg);
+      toast.error('No se pudo actualizar la contraseña.');
     } finally {
       setSaving(false);
     }

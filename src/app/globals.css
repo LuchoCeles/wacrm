@@ -221,6 +221,19 @@ html[data-theme='rose'] {
   * {
     @apply border-border outline-ring/50;
   }
+  /* Keep interactive controls recognizable across both shared and native UI.
+   * Disabled controls deliberately retain their non-interactive cursor. */
+  button:not(:disabled):not([aria-disabled='true']),
+  [role='button']:not([aria-disabled='true']):not([data-disabled]),
+  a[href]:not([aria-disabled='true']),
+  summary {
+    cursor: pointer;
+  }
+  button:disabled,
+  [role='button'][aria-disabled='true'],
+  [role='button'][data-disabled] {
+    cursor: not-allowed;
+  }
   ::selection {
     background: var(--primary);
     color: var(--primary-foreground);

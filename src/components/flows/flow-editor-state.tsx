@@ -143,17 +143,17 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
     case "send_buttons":
       return {
         text: "",
-        buttons: [{ reply_id: "yes", title: "Yes", next_node_key: "" }],
+        buttons: [{ reply_id: "yes", title: "Sí", next_node_key: "" }],
       };
     case "send_list":
       return {
         text: "",
-        button_label: "View options",
+        button_label: "Ver opciones",
         sections: [
           {
             title: "",
             rows: [
-              { reply_id: "row_1", title: "Option 1", next_node_key: "" },
+              { reply_id: "row_1", title: "Opción 1", next_node_key: "" },
             ],
           },
         ],
@@ -351,8 +351,7 @@ export function FlowEditorProvider({
       setDirty(false);
       toast.success(t("saved"));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Save failed";
-      toast.error(msg);
+      toast.error('No se pudo guardar el flujo.');
     } finally {
       setSaving(false);
     }
@@ -391,8 +390,7 @@ export function FlowEditorProvider({
               : t("statusDraft")
         );
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Status update failed";
-        toast.error(msg);
+      toast.error('No se pudo actualizar el estado del flujo.');
       } finally {
         setActivating(false);
       }
@@ -403,7 +401,7 @@ export function FlowEditorProvider({
   // ---- Delete ----
   const deleteFlow = useCallback(async () => {
     const yes = window.confirm(
-      `Delete "${state.name}"? Any active runs end immediately. This can't be undone.`,
+      `¿Eliminar "${state.name}"? Todas las ejecuciones activas terminarán de inmediato. Esta acción no se puede deshacer.`,
     );
     if (!yes) return;
     try {
@@ -413,8 +411,7 @@ export function FlowEditorProvider({
       if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
       router.push("/flows");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Delete failed";
-      toast.error(msg);
+      toast.error('No se pudo eliminar el flujo.');
     }
   }, [initialFlow.id, router, state.name]);
 

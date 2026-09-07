@@ -108,8 +108,7 @@ export function AiThreadBanner({
           body: JSON.stringify({ paused, assign_to_me: paused }),
         });
         if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          toast.error(j?.error ?? t("updateError"));
+          toast.error(t("updateError"));
           return;
         }
         setPaused(paused);

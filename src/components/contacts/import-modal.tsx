@@ -362,8 +362,7 @@ export function ImportModal({
         toast.error(t('toastFailed', { count: failed }));
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t('toastError');
-      toast.error(message);
+      toast.error(t('toastError'));
     } finally {
       setImporting(false);
     }

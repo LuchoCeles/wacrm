@@ -88,7 +88,7 @@ export function AiConfig() {
       const res = await fetch('/api/ai/config');
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? t('loadFailed'));
+        toast.error(t('loadFailed'));
         return;
       }
       if (data.configured) {
@@ -167,7 +167,7 @@ export function AiConfig() {
       });
       const data = await res.json();
       if (res.ok) toast.success(t('testSuccess'));
-      else toast.error(data.error ?? t('testRejected'));
+      else toast.error(t('testRejected'));
     } catch {
       toast.error(t('testNetworkError'));
     } finally {
@@ -196,7 +196,7 @@ export function AiConfig() {
         toast.success(t('saveSuccess'));
         await fetchConfig();
       } else {
-        toast.error(data.error ?? t('saveFailed'));
+        toast.error(t('saveFailed'));
       }
     } catch {
       toast.error(t('saveFailed'));
@@ -221,7 +221,7 @@ export function AiConfig() {
         setHandoffAgentId('');
       } else {
         const data = await res.json();
-        toast.error(data.error ?? t('removeFailed'));
+        toast.error(t('removeFailed'));
       }
     } catch {
       toast.error(t('removeFailed'));
