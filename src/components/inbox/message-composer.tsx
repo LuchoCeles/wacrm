@@ -838,7 +838,7 @@ export function MessageComposer({
                 align="start"
                 sideOffset={8}
                 keepMounted
-                className="border-border bg-popover w-[calc(100vw-24px)] max-w-[380px] overflow-hidden p-0"
+                className="border-border bg-popover w-[calc(100vw-24px)] max-w-[520px] overflow-hidden p-0 duration-150 [will-change:transform,opacity]"
               >
                 <EmojiPicker
                   open={emojiPickerOpen}
