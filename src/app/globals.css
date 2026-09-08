@@ -295,10 +295,9 @@ html[data-theme='rose'] {
   display: none;
 }
 
-/* Emoji picker: a small shell around a row-virtualized Unicode grid. The
- * classes retain the previous EPR naming so its compact visual rhythm remains
- * intact, but no third-party runtime CSS or expensive label blur is needed. */
-.emoji-picker {
+/* emoji-picker-react keeps its own virtualized layout; these rules only apply
+ * the CRM shell, design tokens, and responsive height around that runtime. */
+.emoji-picker.EmojiPickerReact {
   background: var(--popover);
   color: var(--popover-foreground);
   display: flex;
@@ -312,12 +311,6 @@ html[data-theme='rose'] {
 .emoji-picker .epr-header {
   flex: none;
   padding: 10px 13px 0;
-}
-
-.emoji-picker .emoji-picker-search-row {
-  align-items: center;
-  display: flex;
-  gap: 8px;
 }
 
 .emoji-picker .epr-search-container {
@@ -345,158 +338,6 @@ html[data-theme='rose'] {
   box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 30%, transparent);
 }
 
-.emoji-picker .emoji-picker-search-icon {
-  color: var(--muted-foreground);
-  left: 11px;
-  pointer-events: none;
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.emoji-picker .emoji-picker-clear-search {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 4px;
-  color: var(--muted-foreground);
-  cursor: pointer;
-  display: flex;
-  height: 28px;
-  justify-content: center;
-  padding: 0;
-  position: absolute;
-  right: 6px;
-  top: 6px;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
-  width: 28px;
-}
-
-.emoji-picker .emoji-picker-clear-search:hover,
-.emoji-picker .emoji-picker-clear-search:focus-visible {
-  background: var(--muted);
-  color: var(--foreground);
-}
-
-.emoji-picker .emoji-picker-skin-tone {
-  flex: none;
-  position: relative;
-}
-
-.emoji-picker .emoji-picker-skin-tone-trigger {
-  align-items: center;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--foreground);
-  cursor: pointer;
-  display: flex;
-  font-size: 19px;
-  height: 40px;
-  justify-content: center;
-  padding: 0;
-  transition:
-    background-color 150ms ease,
-    border-color 150ms ease;
-  width: 40px;
-}
-
-.emoji-picker .emoji-picker-skin-tone-trigger:hover,
-.emoji-picker .emoji-picker-skin-tone-trigger:focus-visible {
-  background: var(--muted);
-  border-color: var(--primary);
-}
-
-.emoji-picker .emoji-picker-skin-tone-menu {
-  align-items: center;
-  background: var(--popover);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 20px color-mix(in srgb, #000 18%, transparent);
-  display: flex;
-  gap: 2px;
-  padding: 4px;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 20;
-}
-
-.emoji-picker .emoji-picker-skin-tone-menu button {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 5px;
-  cursor: pointer;
-  display: flex;
-  font-size: 18px;
-  height: 30px;
-  justify-content: center;
-  padding: 0;
-  transition:
-    background-color 150ms ease,
-    transform 150ms ease;
-  width: 30px;
-}
-
-.emoji-picker .emoji-picker-skin-tone-menu button:hover,
-.emoji-picker .emoji-picker-skin-tone-menu button:focus-visible,
-.emoji-picker .emoji-picker-skin-tone-menu button.is-selected {
-  background: var(--muted);
-}
-
-.emoji-picker .emoji-picker-skin-tone-menu button:hover {
-  transform: scale(1.08);
-}
-
-/* Mounted only after a deliberate 500 ms press (or Space) on an emoji with
- * variants. It lives in a portal so the scroll viewport cannot clip it. */
-.emoji-picker-variation-menu {
-  align-items: center;
-  background: var(--popover);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 20px color-mix(in srgb, #000 18%, transparent);
-  display: flex;
-  gap: 2px;
-  height: 52px;
-  justify-content: space-around;
-  padding: 5px;
-  position: fixed;
-  width: min(274px, calc(100vw - 16px));
-  z-index: 70;
-}
-
-.emoji-picker-variation-menu button {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  color: var(--popover-foreground);
-  cursor: pointer;
-  display: flex;
-  flex: 1 1 0;
-  font-family:
-    'Segoe UI Emoji', 'Segoe UI Symbol', 'Apple Color Emoji', 'Twemoji Mozilla',
-    'Noto Color Emoji', sans-serif;
-  font-size: 25px;
-  height: 40px;
-  justify-content: center;
-  line-height: 1;
-  padding: 0;
-  transition:
-    background-color 100ms ease,
-    transform 100ms ease;
-}
-
-.emoji-picker-variation-menu button:hover,
-.emoji-picker-variation-menu button:focus-visible {
-  background: var(--muted);
-  transform: scale(1.1);
-}
-
 .emoji-picker .epr-search-container input {
   font-size: 14px;
   font-weight: 400;
@@ -511,9 +352,10 @@ html[data-theme='rose'] {
 
 .emoji-picker .epr-cat-btn {
   align-items: center;
-  background: transparent;
+  /* The picker renders each category icon from its own background sprite.
+   * Only clear the colour here; resetting `background` would also hide it. */
+  background-color: transparent;
   border: 0;
-  background-image: none;
   border-radius: 4px;
   color: color-mix(in oklab, var(--muted-foreground) 88%, var(--foreground));
   cursor: pointer;
@@ -589,81 +431,24 @@ html[data-theme='rose'] {
   scrollbar-gutter: stable;
 }
 
-.emoji-picker .emoji-picker-virtual-canvas {
-  position: relative;
-  width: 100%;
-}
-
-.emoji-picker .emoji-picker-grid-row {
-  align-items: center;
-  display: grid;
-  height: 40px;
-  justify-content: space-between;
-  padding: 0 13px;
-}
-
-.emoji-picker .emoji-picker-emoji {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 8px;
-  color: inherit;
-  cursor: pointer;
-  display: flex;
-  font-family:
-    'Segoe UI Emoji', 'Segoe UI Symbol', 'Apple Color Emoji', 'Twemoji Mozilla',
-    'Noto Color Emoji', sans-serif;
-  font-size: 25px;
-  height: 40px;
-  justify-content: center;
-  line-height: 1;
-  padding: 4px;
-  transition:
-    background-color 100ms ease,
-    transform 100ms ease;
-  width: 40px;
-}
-
-.emoji-picker .emoji-picker-emoji:hover,
-.emoji-picker .emoji-picker-emoji:focus-visible {
-  background: var(--muted);
-  transform: scale(1.12);
-}
-
-.emoji-picker .emoji-picker-emoji:active {
-  transform: scale(1.04);
-}
-
-.emoji-picker .emoji-picker-sticky-label {
-  align-items: center;
-  background: var(--popover);
-  border-bottom: 1px solid color-mix(in oklab, var(--border) 72%, transparent);
-  color: var(--muted-foreground);
-  display: flex;
-  font-size: 14px;
-  font-weight: 600;
-  height: 34px;
-  line-height: 1.25;
-  margin-bottom: -34px;
-  padding: 0 13px;
-  pointer-events: none;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.emoji-picker .emoji-picker-empty {
-  color: var(--muted-foreground);
-  font-size: 14px;
-  margin: 0;
-  padding: 28px 13px;
-  text-align: center;
-}
-
 @media (max-width: 639px) {
-  .emoji-picker {
+  .emoji-picker.EmojiPickerReact {
     height: min(500px, calc(100dvh - 96px)) !important;
   }
+}
+
+/* EmojiText behaves like an ordinary glyph in every inline inbox surface. */
+.emoji-text {
+  display: inline;
+}
+
+.emoji-image {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  margin: 0;
+  vertical-align: -0.16em;
+  object-fit: contain;
 }
 
 /* Firefox does not honour the WebKit pseudo-elements. Keep its native track

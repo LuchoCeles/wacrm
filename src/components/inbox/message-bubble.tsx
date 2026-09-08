@@ -16,6 +16,7 @@ import {
 import { format } from 'date-fns';
 import { ReplyQuote } from './reply-quote';
 import { MessageReactions } from './message-reactions';
+import { EmojiText } from '@/components/emojis/emoji-text';
 import {
   MediaAudioBubble,
   MediaDocumentBubble,
@@ -78,7 +79,7 @@ function MessageContent({
     case 'text':
       return (
         <p className="text-sm break-words whitespace-pre-wrap">
-          {message.content_text}
+          <EmojiText text={message.content_text} />
         </p>
       );
 
@@ -92,7 +93,7 @@ function MessageContent({
           )}
           {message.content_text && (
             <p className="mt-1 text-sm break-words whitespace-pre-wrap">
-              {message.content_text}
+              <EmojiText text={message.content_text} />
             </p>
           )}
         </div>
@@ -108,7 +109,7 @@ function MessageContent({
           )}
           {message.content_text && (
             <p className="mt-1 text-sm break-words whitespace-pre-wrap">
-              {message.content_text}
+              <EmojiText text={message.content_text} />
             </p>
           )}
         </div>
@@ -152,7 +153,9 @@ function MessageContent({
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">
-              {contact?.name || message.content_text || t('contact')}
+              <EmojiText
+                text={contact?.name || message.content_text || t('contact')}
+              />
             </p>
             {contact?.phone && (
               <p
@@ -194,12 +197,12 @@ function MessageContent({
           </span>
           {message.content_text ? (
             <p className="mt-1 text-sm break-words whitespace-pre-wrap">
-              {message.content_text}
+              <EmojiText text={message.content_text} />
             </p>
           ) : (
             message.template_name && (
               <p className="mt-1 text-sm break-words italic opacity-80">
-                {message.template_name}
+                <EmojiText text={message.template_name} />
               </p>
             )
           )}
@@ -210,7 +213,9 @@ function MessageContent({
       return (
         <div className="flex items-center gap-2 text-sm">
           <MapPin className="text-muted-foreground h-4 w-4 shrink-0" />
-          <span>{message.content_text || t('locationShared')}</span>
+          <span>
+            <EmojiText text={message.content_text || t('locationShared')} />
+          </span>
         </div>
       );
 
@@ -235,14 +240,14 @@ function MessageContent({
               {t('buttonReply')}
             </span>
             <p className="text-sm break-words whitespace-pre-wrap">
-              {message.content_text || t('interactiveReply')}
+              <EmojiText text={message.content_text || t('interactiveReply')} />
             </p>
           </div>
         );
       }
       return (
         <p className="text-sm break-words whitespace-pre-wrap">
-          {message.content_text || t('interactiveReply')}
+          <EmojiText text={message.content_text || t('interactiveReply')} />
         </p>
       );
     }
@@ -250,7 +255,7 @@ function MessageContent({
     default:
       return (
         <p className="text-sm break-words whitespace-pre-wrap">
-          {message.content_text || t('unsupported')}
+          <EmojiText text={message.content_text || t('unsupported')} />
         </p>
       );
   }

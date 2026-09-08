@@ -55,6 +55,7 @@ import {
   EmojiPicker,
   preloadEmojiPicker,
 } from '@/components/emojis/emoji-picker';
+import { EmojiText } from '@/components/emojis/emoji-text';
 import { insertEmojiAtSelection } from '@/lib/emojis/insert';
 import {
   Popover,
@@ -158,6 +159,35 @@ export function MessageComposer({
   const [drafting, setDrafting] = useState(false);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaEmojiOverlayRef = useRef<HTMLDivElement>(null);
+  const textareaSelectionRef = useRef({ start: 0, end: 0 });
+
+  // Native textareas cannot render emoji images. Keep it as the real editable
+  // value while a synchronized, non-interactive layer renders the same text
+  // with the Apple emoji assets used everywhere else in the inbox.
+  const syncTextareaEmojiOverlay = useCallback(
+    (textarea = textareaRef.current) => {
+      const overlay = textareaEmojiOverlayRef.current;
+      if (!textarea || !overlay) return;
+
+      overlay.scrollLeft = textarea.scrollLeft;
+      overlay.scrollTop = textarea.scrollTop;
+    },
+    []
+  );
+
+  // Opening the popover moves focus away from the textarea. Keep its UTF-16
+  // selection offsets separately so a picker click still inserts exactly where
+  // the agent was typing (including replacement of selected text).
+  const rememberTextareaSelection = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    textareaSelectionRef.current = {
+      start: textarea.selectionStart,
+      end: textarea.selectionEnd,
+    };
+  }, []);
 
   // Interactive-message builder dialog + quick-reply picker.
   const [interactiveOpen, setInteractiveOpen] = useState(false);
@@ -300,6 +330,10 @@ export function MessageComposer({
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
   }, []);
 
+  useEffect(() => {
+    syncTextareaEmojiOverlay();
+  }, [syncTextareaEmojiOverlay, text]);
+
   const handleSend = useCallback(async () => {
     const trimmed = text.trim();
     if (!trimmed || sending || sessionExpired) return;
@@ -328,6 +362,10 @@ export function MessageComposer({
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      textareaSelectionRef.current = {
+        start: e.currentTarget.selectionStart,
+        end: e.currentTarget.selectionEnd,
+      };
       setText(e.target.value);
       adjustHeight();
     },
@@ -337,8 +375,16 @@ export function MessageComposer({
   const insertEmoji = useCallback(
     (emoji: string) => {
       const textarea = textareaRef.current;
-      const start = textarea?.selectionStart ?? text.length;
-      const end = textarea?.selectionEnd ?? text.length;
+      const liveSelection =
+        textarea && document.activeElement === textarea
+          ? { start: textarea.selectionStart, end: textarea.selectionEnd }
+          : null;
+      const selection = liveSelection ?? textareaSelectionRef.current;
+      const start = textarea ? selection.start : text.length;
+      const end = textarea ? selection.end : text.length;
+      const scrollPosition = textarea
+        ? { left: textarea.scrollLeft, top: textarea.scrollTop }
+        : null;
       const { value: nextText, cursorPosition } = insertEmojiAtSelection(
         text,
         emoji,
@@ -346,16 +392,35 @@ export function MessageComposer({
         end
       );
 
+      textareaSelectionRef.current = {
+        start: cursorPosition,
+        end: cursorPosition,
+      };
       setText(nextText);
       requestAnimationFrame(() => {
         const el = textareaRef.current;
         if (!el) return;
-        el.focus();
+        el.focus({ preventScroll: true });
         el.setSelectionRange(cursorPosition, cursorPosition);
         adjustHeight();
+        if (scrollPosition) {
+          // Resizing can reset an internally-scrollable textarea. Restore the
+          // user's viewport after the height calculation, not before it.
+          el.scrollLeft = scrollPosition.left;
+          el.scrollTop = scrollPosition.top;
+        }
+        syncTextareaEmojiOverlay(el);
       });
     },
-    [adjustHeight, text]
+    [adjustHeight, syncTextareaEmojiOverlay, text]
+  );
+
+  const handleEmojiPickerOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (nextOpen) rememberTextareaSelection();
+      setEmojiPickerOpen(nextOpen);
+    },
+    [rememberTextareaSelection]
   );
 
   // Ask the AI assistant for a suggested reply and drop it into the
@@ -819,13 +884,17 @@ export function MessageComposer({
               aria-hidden="true"
               className="border-border/60 mx-1 h-7 shrink-0 border-l"
             />
-            <Popover open={emojiPickerOpen} onOpenChange={setEmojiPickerOpen}>
+            <Popover
+              open={emojiPickerOpen}
+              onOpenChange={handleEmojiPickerOpenChange}
+            >
               <PopoverTrigger
                 type="button"
                 disabled={inputsDisabled}
                 aria-label={t('insertEmoji')}
                 aria-haspopup="dialog"
                 aria-expanded={emojiPickerOpen}
+                onPointerDown={rememberTextareaSelection}
                 onPointerEnter={preloadEmojiPicker}
                 onFocus={preloadEmojiPicker}
                 title={t('insertEmoji')}
@@ -846,12 +915,33 @@ export function MessageComposer({
                 />
               </PopoverContent>
             </Popover>
-            <div className="relative flex min-w-0 flex-1 items-center rounded-md">
+            <div
+              className={cn(
+                'relative flex min-w-0 flex-1 items-center rounded-md',
+                (sessionExpired || readOnly) && 'opacity-50'
+              )}
+            >
+              {text ? (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
+                  ref={textareaEmojiOverlayRef}
+                >
+                  <div className="text-foreground px-1 py-2.5 text-sm break-words whitespace-pre-wrap">
+                    <EmojiText text={text} />
+                  </div>
+                </div>
+              ) : null}
               <textarea
                 ref={textareaRef}
                 value={text}
                 onChange={handleChange}
+                onBlur={rememberTextareaSelection}
                 onKeyDown={handleKeyDown}
+                onScroll={(event) =>
+                  syncTextareaEmojiOverlay(event.currentTarget)
+                }
+                onSelect={rememberTextareaSelection}
                 placeholder={
                   readOnly
                     ? t('readOnlyPlaceholder')
@@ -865,11 +955,10 @@ export function MessageComposer({
                 // wrapping pattern doesn't apply to non-button inputs.
                 // The placeholder text also surfaces the read-only state.
                 title={readOnly ? t('readOnlyTitle') : undefined}
-                style={{ caretColor: 'var(--primary)' }}
+                style={{ caretColor: 'var(--primary)', color: 'transparent' }}
                 className={cn(
-                  'scrollbar-composer text-foreground placeholder-muted-foreground min-h-11 w-full resize-none bg-transparent px-1 py-2.5 text-sm outline-none',
-                  (sessionExpired || readOnly) &&
-                    'cursor-not-allowed opacity-50'
+                  'scrollbar-composer placeholder:text-muted-foreground relative z-10 min-h-11 w-full resize-none bg-transparent px-1 py-2.5 text-sm outline-none',
+                  (sessionExpired || readOnly) && 'cursor-not-allowed'
                 )}
               />
             </div>

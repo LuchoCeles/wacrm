@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/types';
 import { useTranslations } from 'next-intl';
+import { EmojiText } from '@/components/emojis/emoji-text';
 
 interface ReplyQuoteProps {
   /** Sender label of the quoted message: "You" for our own messages,
@@ -48,7 +49,7 @@ export function ReplyQuote({
             onPrimary ? 'text-primary-foreground' : 'text-primary'
           )}
         >
-          {authorLabel}
+          <EmojiText text={authorLabel} />
         </div>
         {/* Wrap the preview instead of truncating to a single line.
          *  `truncate` (white-space: nowrap) forced the quote onto one
@@ -58,7 +59,7 @@ export function ReplyQuote({
          *  `break-words` also wraps long URLs that have no whitespace
          *  to break on. Issue #165. */}
         <div className="text-foreground/80 text-xs break-words whitespace-pre-wrap">
-          {preview}
+          <EmojiText text={preview} />
         </div>
       </div>
       {onDismiss && (

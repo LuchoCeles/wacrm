@@ -55,6 +55,8 @@ import { AiThreadBanner } from './ai-thread-banner';
 import { buildReplyPreview } from './reply-quote';
 import { renderTemplateBody } from '@/lib/whatsapp/template-body';
 import { toast } from 'sonner';
+import { EmojiText } from '@/components/emojis/emoji-text';
+import { segmentGraphemes } from '@/lib/emojis/unicode';
 
 interface ReplyDraft {
   id: string;
@@ -949,6 +951,7 @@ export function MessageThread({
   }
 
   const displayName = contact.name || contact.phone;
+  const avatarGlyph = segmentGraphemes(displayName)[0]?.toUpperCase() ?? '';
   const messageGroups = groupMessagesByDate(messages);
   const currentStatus = STATUS_OPTIONS.find(
     (s) => s.value === conversation.status
@@ -997,12 +1000,12 @@ export function MessageThread({
               className="group hover:text-foreground focus-visible:ring-ring flex min-w-0 items-center gap-2 rounded-sm text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:gap-3"
             >
               <span className="bg-muted text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-medium">
-                {displayName.charAt(0).toUpperCase()}
+                <EmojiText text={avatarGlyph} />
               </span>
               <span className="flex min-w-0 items-center gap-1.5">
                 <span className="min-w-0">
                   <span className="text-foreground block truncate text-sm font-semibold">
-                    {displayName}
+                    <EmojiText text={displayName} />
                   </span>
                   <span className="text-muted-foreground group-hover:text-foreground/80 block truncate text-xs transition-colors">
                     {contact.phone}
@@ -1020,11 +1023,11 @@ export function MessageThread({
           ) : (
             <>
               <div className="bg-muted text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-medium">
-                {displayName.charAt(0).toUpperCase()}
+                <EmojiText text={avatarGlyph} />
               </div>
               <div className="min-w-0">
                 <h2 className="text-foreground truncate text-sm font-semibold">
-                  {displayName}
+                  <EmojiText text={displayName} />
                 </h2>
                 <p className="text-muted-foreground truncate text-xs">
                   {contact.phone}

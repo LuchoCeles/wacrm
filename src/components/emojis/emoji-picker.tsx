@@ -44,7 +44,7 @@ export function EmojiPicker({ open, onEmojiSelect }: EmojiPickerProps) {
 
   // MessageComposer's insertion callback naturally changes with the current
   // textarea value. Keeping the latest callback in a ref prevents that change
-  // from propagating into the virtual grid on every keystroke.
+  // from propagating into the loaded picker on every keystroke.
   useEffect(() => {
     onEmojiSelectRef.current = onEmojiSelect;
   }, [onEmojiSelect]);
@@ -57,8 +57,8 @@ export function EmojiPicker({ open, onEmojiSelect }: EmojiPickerProps) {
     if (!open || hasLoaded) return;
 
     // Let the portal paint and its transform/opacity animation start first.
-    // Two animation frames are deterministic across refresh rates and avoid
-    // injecting even the small virtual shell into the opening frame.
+    // Two animation frames are deterministic across refresh rates and keep
+    // the picker module out of the opening frame.
     let secondFrame = 0;
     const firstFrame = window.requestAnimationFrame(() => {
       secondFrame = window.requestAnimationFrame(() => setHasLoaded(true));
