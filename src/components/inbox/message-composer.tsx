@@ -57,6 +57,8 @@ import {
 } from '@/components/emojis/emoji-picker';
 import { EmojiText } from '@/components/emojis/emoji-text';
 import { insertEmojiAtSelection } from '@/lib/emojis/insert';
+import { registerEmojiUsage } from '@/lib/emojis/usage';
+import { tokenizeEmojiText } from '@/lib/emojis/unicode';
 import {
   Popover,
   PopoverContent,
@@ -129,7 +131,7 @@ interface MediaDraft {
 interface MessageComposerProps {
   conversationId: string;
   sessionExpired: boolean;
-  onSend: (text: string, replyToId?: string) => void;
+  onSend: (text: string, replyToId?: string) => Promise<boolean>;
   onSendMedia: (payload: SendMediaPayload) => void;
   onSendContact: (payload: SendContactPayload) => void;
   onSendInteractive: (
@@ -158,13 +160,15 @@ export function MessageComposer({
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [emojiUsageVersion, setEmojiUsageVersion] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textareaEmojiOverlayRef = useRef<HTMLDivElement>(null);
   const textareaSelectionRef = useRef({ start: 0, end: 0 });
 
   // Native textareas cannot render emoji images. Keep it as the real editable
-  // value while a synchronized, non-interactive layer renders the same text
-  // with the Apple emoji assets used everywhere else in the inbox.
+  // value while a synchronized, non-interactive layer renders the same text.
+  // EmojiText measures each image slot against this textarea, so an asset can
+  // never introduce an accumulating advance-width difference from Unicode.
   const syncTextareaEmojiOverlay = useCallback(
     (textarea = textareaRef.current) => {
       const overlay = textareaEmojiOverlayRef.current;
@@ -340,7 +344,13 @@ export function MessageComposer({
 
     setSending(true);
     try {
-      onSend(trimmed, replyTo?.id);
+      const sent = await onSend(trimmed, replyTo?.id);
+      if (sent) {
+        for (const token of tokenizeEmojiText(trimmed)) {
+          if (token.type === 'emoji') registerEmojiUsage(token.value);
+        }
+        setEmojiUsageVersion((version) => version + 1);
+      }
       setText('');
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
@@ -670,10 +680,14 @@ export function MessageComposer({
       .some((value) => value!.toLocaleLowerCase().includes(query));
   });
 
-  // Reply and session-expired states add content above the writing controls.
-  // They therefore share the less-rounded outer shell instead of allowing the
-  // normal pill shape to curve through an internal panel.
-  const hasTopPanel = Boolean(replyTo) || sessionExpired;
+  // Any content above the writing controls turns the composer into one
+  // composed surface. The outer shell owns its border and radius; panels only
+  // add straight internal dividers. `draft` is the current attachment model
+  // (one staged attachment at a time).
+  const hasReply = Boolean(replyTo);
+  const hasExpiredSession = sessionExpired;
+  const hasAttachments = Boolean(draft);
+  const hasTopPanel = hasReply || hasExpiredSession || hasAttachments;
 
   // ---- Render --------------------------------------------------------
 
@@ -684,13 +698,8 @@ export function MessageComposer({
         hasTopPanel ? 'overflow-hidden rounded-[20px]' : 'rounded-full p-1.5'
       )}
     >
-      {replyTo && (
-        <div
-          className={cn(
-            'px-2.5 pt-2.5',
-            sessionExpired ? 'border-border/70 border-b pb-2.5' : 'mb-2'
-          )}
-        >
+      {hasReply && replyTo && (
+        <div className="border-border/70 border-b px-2.5 py-2.5">
           <ReplyQuote
             authorLabel={replyTo.authorLabel}
             preview={replyTo.preview}
@@ -698,8 +707,8 @@ export function MessageComposer({
           />
         </div>
       )}
-      {sessionExpired && (
-        <div className="border-border/70 flex items-center justify-between rounded-t-[19px] rounded-b-none border-b bg-amber-500/10 px-3 py-2">
+      {hasExpiredSession && (
+        <div className="border-border/70 flex items-center justify-between border-b bg-amber-500/10 px-3 py-2">
           <p className="text-xs text-amber-400">{t('sessionExpiredHint')}</p>
           <Button
             variant="ghost"
@@ -712,16 +721,15 @@ export function MessageComposer({
           </Button>
         </div>
       )}
+      {hasAttachments && draft && (
+        <MediaDraftAttachmentPanel
+          draft={draft}
+          onDiscard={discardDraft}
+          t={t}
+        />
+      )}
 
-      <div
-        className={cn(
-          sessionExpired
-            ? 'rounded-t-none rounded-b-[19px] p-1.5'
-            : replyTo
-              ? 'rounded-t-none rounded-b-[19px] px-1.5 pb-1.5'
-              : undefined
-        )}
-      >
+      <div className={cn(hasTopPanel && 'p-1.5')}>
         {/* Hidden file inputs driven by the attach menu. */}
         <input
           ref={photosAndVideosInputRef}
@@ -745,12 +753,11 @@ export function MessageComposer({
         />
 
         {draft ? (
-          <MediaDraftPreview
+          <MediaDraftCaptionComposer
             draft={draft}
             busy={busy}
             readOnly={readOnly}
             onCaptionChange={setCaption}
-            onDiscard={discardDraft}
             onSend={sendDraft}
             t={t}
           />
@@ -912,6 +919,7 @@ export function MessageComposer({
                 <EmojiPicker
                   open={emojiPickerOpen}
                   onEmojiSelect={insertEmoji}
+                  usageVersion={emojiUsageVersion}
                 />
               </PopoverContent>
             </Popover>
@@ -927,8 +935,12 @@ export function MessageComposer({
                   className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
                   ref={textareaEmojiOverlayRef}
                 >
-                  <div className="text-foreground px-1 py-2.5 text-sm break-words whitespace-pre-wrap">
-                    <EmojiText text={text} />
+                  <div className="text-foreground px-1 py-2.5 text-[16px] leading-6 break-words whitespace-pre-wrap">
+                    <EmojiText
+                      emojiSlotClassName="composer-emoji-slot"
+                      measurementElement={textareaRef.current}
+                      text={text}
+                    />
                   </div>
                 </div>
               ) : null}
@@ -957,7 +969,7 @@ export function MessageComposer({
                 title={readOnly ? t('readOnlyTitle') : undefined}
                 style={{ caretColor: 'var(--primary)', color: 'transparent' }}
                 className={cn(
-                  'scrollbar-composer placeholder:text-muted-foreground relative z-10 min-h-11 w-full resize-none bg-transparent px-1 py-2.5 text-sm outline-none',
+                  'scrollbar-composer placeholder:text-muted-foreground relative z-10 min-h-11 w-full resize-none bg-transparent px-1 py-2.5 text-[16px] leading-6 outline-none placeholder:text-[13.4px]',
                   (sessionExpired || readOnly) && 'cursor-not-allowed'
                 )}
               />
@@ -1079,30 +1091,21 @@ export function MessageComposer({
 }
 
 /**
- * Staged-attachment preview with caption + send/discard. Declared at
- * module scope (not nested in MessageComposer) so React keeps it mounted
- * across the parent's re-renders — a nested component would remount the
- * caption input on every keystroke and drop focus.
+ * The attachment panel is a top section of the composer shell. It deliberately
+ * has no outer border or radius: the composer wrapper owns both, while this
+ * panel contributes only the divider above the description composer.
  */
-function MediaDraftPreview({
+function MediaDraftAttachmentPanel({
   draft,
-  busy,
-  readOnly,
-  onCaptionChange,
   onDiscard,
-  onSend,
   t,
 }: {
   draft: MediaDraft;
-  busy: boolean;
-  readOnly: boolean;
-  onCaptionChange: (caption: string) => void;
   onDiscard: () => void;
-  onSend: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
   return (
-    <div className="border-border bg-muted/40 rounded-xl border p-3">
+    <div className="border-border/70 bg-muted/40 max-h-64 overflow-y-auto border-b p-3">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           {draft.kind === 'image' && (
@@ -1139,37 +1142,59 @@ function MediaDraftPreview({
           <X className="h-4 w-4" />
         </button>
       </div>
+    </div>
+  );
+}
 
-      <div className="mt-2 flex items-end gap-2">
-        {draft.kind !== 'audio' && (
-          <input
-            value={draft.caption}
-            maxLength={MEDIA_CAPTION_MAX}
-            onChange={(e) => onCaptionChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                onSend();
-              }
-            }}
-            placeholder={t('addCaption')}
-            className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 flex-1 rounded-xl border px-4 py-2.5 text-sm transition-colors outline-none"
-          />
+/**
+ * Lower section of an attachment composer. Kept at module scope so editing a
+ * caption never remounts the input and loses focus.
+ */
+function MediaDraftCaptionComposer({
+  draft,
+  busy,
+  readOnly,
+  onCaptionChange,
+  onSend,
+  t,
+}: {
+  draft: MediaDraft;
+  busy: boolean;
+  readOnly: boolean;
+  onCaptionChange: (caption: string) => void;
+  onSend: () => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  return (
+    <div className="flex min-h-11 items-center gap-2">
+      {draft.kind !== 'audio' && (
+        <input
+          value={draft.caption}
+          maxLength={MEDIA_CAPTION_MAX}
+          onChange={(e) => onCaptionChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              onSend();
+            }
+          }}
+          placeholder={t('addCaption')}
+          className="text-foreground placeholder-muted-foreground flex-1 bg-transparent px-2.5 py-2.5 text-sm outline-none"
+        />
+      )}
+      <GatedButton
+        size="sm"
+        canAct={!readOnly}
+        gateReason="enviar mensajes"
+        disabled={busy}
+        onClick={onSend}
+        className={cn(
+          'bg-primary hover:bg-primary/90 h-9 w-9 shrink-0 p-0 disabled:opacity-40',
+          draft.kind === 'audio' && 'ml-auto'
         )}
-        <GatedButton
-          size="sm"
-          canAct={!readOnly}
-          gateReason="enviar mensajes"
-          disabled={busy}
-          onClick={onSend}
-          className={cn(
-            'bg-primary hover:bg-primary/90 h-9 w-9 shrink-0 p-0 disabled:opacity-40',
-            draft.kind === 'audio' && 'ml-auto'
-          )}
-        >
-          <Send className="h-4 w-4" />
-        </GatedButton>
-      </div>
+      >
+        <Send className="h-4 w-4" />
+      </GatedButton>
     </div>
   );
 }

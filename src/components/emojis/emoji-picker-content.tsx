@@ -1,6 +1,11 @@
 'use client';
 
-import { useCallback, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useRef,
+  type CSSProperties,
+  type SyntheticEvent,
+} from 'react';
 import Picker, {
   Categories,
   EmojiStyle,
@@ -13,8 +18,14 @@ import Picker, {
 import spanishEmojiData from 'emoji-picker-react/dist/data/emojis-es.js';
 import type { EmojiData } from 'emoji-picker-react/dist/types/exposedTypes';
 import { useTheme } from '@/hooks/use-theme';
-import { registerEmojiUsage } from '@/lib/emojis/usage';
-import { getAppleEmojiAssetUrlByUnified } from '@/lib/emojis/unicode';
+import { migratePickerSuggestions } from '@/lib/emojis/usage';
+import { getPickerEmojiAssetUrlByUnified } from '@/lib/emojis/unicode';
+
+const PICKER_SUGGESTED_STORAGE_KEY = 'epr_suggested';
+
+// This module is loaded client-side only. Normalize older saved tone variants
+// before emoji-picker-react reads its suggested category for the first time.
+migratePickerSuggestions();
 
 const emojiData: EmojiData = {
   ...spanishEmojiData,
@@ -78,39 +89,90 @@ export function EmojiPickerContent({
   open,
 }: EmojiPickerContentProps) {
   const { mode } = useTheme();
+  const suggestionsBeforeClickRef = useRef<string | null>(null);
+
+  // emoji-picker-react increments its own frequency data before calling
+  // onEmojiClick. Snapshot it in the capture phase so a draft insertion can
+  // be rolled back; the composer writes a new count only after a successful
+  // send.
+  const rememberSuggestionsBeforeClick = useCallback(() => {
+    try {
+      suggestionsBeforeClickRef.current = window.localStorage.getItem(
+        PICKER_SUGGESTED_STORAGE_KEY
+      );
+    } catch {
+      suggestionsBeforeClickRef.current = null;
+    }
+  }, []);
+
+  const restoreSuggestionsAfterClick = useCallback(() => {
+    try {
+      const previous = suggestionsBeforeClickRef.current;
+      if (previous === null) {
+        window.localStorage.removeItem(PICKER_SUGGESTED_STORAGE_KEY);
+      } else {
+        window.localStorage.setItem(PICKER_SUGGESTED_STORAGE_KEY, previous);
+      }
+    } catch {
+      // Local storage can be unavailable; composing must still work.
+    }
+  }, []);
 
   const handleEmojiClick = useCallback(
     (emoji: EmojiClickData) => {
-      // Both stores use the complete Unicode sequence as their key. This
-      // makes 👍 and 👍🏽 different frequent entries without serializing an
-      // asset URL or a shortcode into composer state.
-      registerEmojiUsage(emoji.emoji);
+      restoreSuggestionsAfterClick();
       onEmojiSelect(emoji.emoji);
     },
-    [onEmojiSelect]
+    [onEmojiSelect, restoreSuggestionsAfterClick]
+  );
+
+  const recoverMissingEmojiAsset = useCallback(
+    (event: SyntheticEvent<HTMLDivElement>) => {
+      const image = event.target;
+      if (!(image instanceof HTMLImageElement)) return;
+
+      const unified = image
+        .closest<HTMLElement>('[data-unified]')
+        ?.dataset.unified;
+      if (!unified || image.dataset.twemojiFallback === 'true') return;
+
+      // Stop emoji-picker-react from removing an emoji before its fallback
+      // asset has a chance to load. This is only reached for an unexpected
+      // remote asset gap; known gaps are routed directly below.
+      event.stopPropagation();
+      image.dataset.twemojiFallback = 'true';
+      image.src = `https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/72x72/${unified.toLowerCase()}.png`;
+    },
+    []
   );
 
   return (
-    <Picker
-      autoFocusSearch={false}
-      categories={categories}
-      className="emoji-picker scrollbar-emoji"
-      emojiData={emojiData}
-      emojiStyle={EmojiStyle.APPLE}
-      getEmojiUrl={getAppleEmojiAssetUrlByUnified}
-      height="min(500px, calc(100dvh - 96px))"
-      lazyLoadEmojis
-      onEmojiClick={handleEmojiClick}
-      open={open}
-      previewConfig={{ showPreview: false }}
-      searchClearButtonLabel="Limpiar búsqueda"
-      searchPlaceholder="Buscar emoji"
-      skinTonePickerLocation={SkinTonePickerLocation.SEARCH}
-      skinTonesDisabled={false}
-      style={pickerStyle}
-      suggestedEmojisMode={SuggestionMode.FREQUENT}
-      theme={mode === 'dark' ? Theme.DARK : Theme.LIGHT}
-      width="100%"
-    />
+    <div
+      onKeyDownCapture={rememberSuggestionsBeforeClick}
+      onMouseDownCapture={rememberSuggestionsBeforeClick}
+      onTouchStartCapture={rememberSuggestionsBeforeClick}
+      onErrorCapture={recoverMissingEmojiAsset}
+    >
+      <Picker
+        autoFocusSearch={false}
+        categories={categories}
+        className="emoji-picker scrollbar-emoji"
+        emojiData={emojiData}
+        emojiStyle={EmojiStyle.APPLE}
+        getEmojiUrl={getPickerEmojiAssetUrlByUnified}
+        height="min(500px, calc(100dvh - 96px))"
+        onEmojiClick={handleEmojiClick}
+        open={open}
+        previewConfig={{ showPreview: false }}
+        searchClearButtonLabel="Limpiar búsqueda"
+        searchPlaceholder="Buscar emoji"
+        skinTonePickerLocation={SkinTonePickerLocation.SEARCH}
+        skinTonesDisabled={false}
+        style={pickerStyle}
+        suggestedEmojisMode={SuggestionMode.FREQUENT}
+        theme={mode === 'dark' ? Theme.DARK : Theme.LIGHT}
+        width="100%"
+      />
+    </div>
   );
 }

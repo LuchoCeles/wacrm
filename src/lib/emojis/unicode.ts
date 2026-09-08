@@ -10,6 +10,8 @@ import emojiRegex from 'emoji-regex';
 
 export const APPLE_EMOJI_ASSET_BASE_URL =
   'https://cdn.jsdelivr.net/npm/emoji-datasource-apple/img/apple/64/';
+const TWEMOJI_ASSET_BASE_URL =
+  'https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/72x72/';
 
 const EXTENDED_PICTOGRAPHIC = /\p{Extended_Pictographic}/u;
 const REGIONAL_INDICATOR = /\p{Regional_Indicator}/u;
@@ -174,6 +176,35 @@ export function getAppleEmojiAssetUrlByUnified(unified: string): string {
     });
 
   return valid ? `${APPLE_EMOJI_ASSET_BASE_URL}${parts.join('-')}.png` : '';
+}
+
+/**
+ * emoji-datasource-apple does not publish PNGs for some valid Unicode
+ * skin-tone combinations, notably wrestlers and gendered ZWJ sequences.
+ * Route only those known gaps to Twemoji, which has matching Unicode assets,
+ * so the browser never paints a broken-image frame before the picker removes
+ * the emoji after its image error.
+ */
+export function getPickerEmojiAssetUrlByUnified(unified: string): string {
+  const normalized = unified.toLowerCase();
+  const skinToneCount = normalized
+    .split('-')
+    .filter((part) => /^1f3f[b-f]$/u.test(part)).length;
+  const hasSkinTone = skinToneCount > 0;
+  const isWrestlerWithTone = /^1f93c-1f3f[b-f](?:-|$)/u.test(normalized);
+  const isGenderedToneSequence =
+    /-200d-(?:2640|2642)-fe0f$/u.test(normalized);
+  const isMultiToneZwJSequence =
+    skinToneCount > 1 && normalized.includes('-200d-');
+
+  if (
+    hasSkinTone &&
+    (isWrestlerWithTone || isGenderedToneSequence || isMultiToneZwJSequence)
+  ) {
+    return `${TWEMOJI_ASSET_BASE_URL}${normalized}.png`;
+  }
+
+  return getAppleEmojiAssetUrlByUnified(normalized);
 }
 
 export function getAppleEmojiAssetUrl(value: string): string {

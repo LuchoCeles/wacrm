@@ -451,6 +451,33 @@ html[data-theme='rose'] {
   object-fit: contain;
 }
 
+/* The editable composer measures this wrapper from its textarea's actual
+ * Unicode glyph metrics. The asset is centered inside that reserved advance
+ * width, preventing per-emoji drift of the native caret and selection. */
+.composer-emoji-slot {
+  display: inline-block;
+  height: 1em;
+  line-height: inherit;
+  overflow: visible;
+  text-align: center;
+  vertical-align: -0.16em;
+}
+
+.composer-emoji-slot .emoji-image {
+  height: 1em;
+  margin: 0;
+  vertical-align: top;
+  width: 1em;
+}
+
+/* Chromium otherwise repaints the native selected glyph over the overlay.
+ * Regional-indicator glyphs then appear as country letters (for example UY)
+ * on Windows even though the flag asset loaded correctly. */
+.scrollbar-composer::selection {
+  background: color-mix(in oklab, var(--primary) 35%, transparent);
+  color: transparent;
+}
+
 /* Firefox does not honour the WebKit pseudo-elements. Keep its native track
  * transparent while using its thinnest available scrollbar fallback. */
 @supports not (-webkit-appearance: none) {

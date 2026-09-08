@@ -3,6 +3,7 @@ import {
   APPLE_EMOJI_ASSET_BASE_URL,
   emojiToUnified,
   getAppleEmojiAssetUrlByUnified,
+  getPickerEmojiAssetUrlByUnified,
   segmentGraphemes,
   tokenizeEmojiText,
 } from './unicode';
@@ -68,6 +69,24 @@ describe('emoji Unicode helpers', () => {
     expect(emojiToUnified(emoji)).toBe(unified);
     expect(getAppleEmojiAssetUrlByUnified(unified)).toBe(
       `${APPLE_EMOJI_ASSET_BASE_URL}${unified}.png`
+    );
+  });
+
+  it('uses a complete fallback asset for Apple skin-tone gaps', () => {
+    expect(
+      getPickerEmojiAssetUrlByUnified('1f93c-1f3fb-200d-2642-fe0f')
+    ).toBe(
+      'https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/72x72/1f93c-1f3fb-200d-2642-fe0f.png'
+    );
+    expect(getPickerEmojiAssetUrlByUnified('1f600')).toBe(
+      `${APPLE_EMOJI_ASSET_BASE_URL}1f600.png`
+    );
+    expect(
+      getPickerEmojiAssetUrlByUnified(
+        '1f468-1f3fb-200d-1faef-200d-1f468-1f3fc'
+      )
+    ).toBe(
+      'https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/72x72/1f468-1f3fb-200d-1faef-200d-1f468-1f3fc.png'
     );
   });
 
