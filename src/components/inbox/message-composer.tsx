@@ -929,7 +929,7 @@ export function MessageComposer({
               </PopoverTrigger>
               <PopoverContent
                 side="top"
-                align="start"
+                align="center"
                 sideOffset={8}
                 collisionPadding={{ top: 64, right: 12, bottom: 12, left: 12 }}
                 keepMounted
