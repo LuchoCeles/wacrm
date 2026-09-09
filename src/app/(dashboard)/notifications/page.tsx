@@ -37,7 +37,7 @@ export default function NotificationsPage() {
       .order("created_at", { ascending: false })
       .limit(100);
     if (fetchErr) {
-      setError(fetchErr.message);
+      setError('No se pudieron cargar las notificaciones.');
       return;
     }
     setNotifications((data ?? []) as Notification[]);
@@ -148,7 +148,7 @@ export default function NotificationsPage() {
       <div className="flex h-64 flex-col items-center justify-center gap-2">
         <p className="text-sm text-destructive">{error}</p>
         <Button variant="outline" onClick={() => window.location.reload()}>
-          Retry
+          Reintentar
         </Button>
       </div>
     );

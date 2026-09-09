@@ -83,7 +83,7 @@ export function ApiKeysSettings() {
       const res = await fetch('/api/account/api-keys', { cache: 'no-store' });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || t('loadFailed'));
+        toast.error(t('loadFailed'));
         return;
       }
       const data = (await res.json()) as { keys: ApiKey[] };
@@ -108,7 +108,7 @@ export function ApiKeysSettings() {
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || t('revokeFailed'));
+        toast.error(t('revokeFailed'));
         return;
       }
       toast.success(t('revokeSuccess', { name: key.name }));
@@ -324,7 +324,7 @@ function CreateKeyDialog({
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(payload.error || t('createError'));
+        toast.error(t('createError'));
         return;
       }
       setCreatedKey(payload.plaintext as string);

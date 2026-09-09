@@ -25,9 +25,11 @@ import {
   sendTextMessage,
   sendTemplateMessage,
   sendMediaMessage,
+  sendContactMessage,
   sendInteractiveButtons,
   sendInteractiveList,
   type MediaKind,
+  type SharedContactMessage,
 } from '@/lib/whatsapp/meta-api';
 import {
   validateInteractivePayload,
@@ -43,6 +45,7 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
 import type { MessageTemplate } from '@/types';
+import type { SharedContactPayload } from '@/types';
 import {
   resolveTemplateRow,
   templateBodyParams,
@@ -52,6 +55,7 @@ import {
 export const MEDIA_KINDS = ['image', 'video', 'document', 'audio'] as const;
 export const VALID_MESSAGE_TYPES = [
   'text',
+  'contact',
   'template',
   'interactive',
   ...MEDIA_KINDS,
@@ -87,6 +91,8 @@ export interface SendMessageParams {
   templateMessageParams?: unknown;
   /** Structured payload for `messageType === 'interactive'`. */
   interactivePayload?: InteractiveMessagePayload | null;
+  /** Snapshot of the CRM contact to share through WhatsApp. */
+  contactPayload?: SharedContactPayload | null;
   replyToMessageId?: string | null;
 }
 
@@ -118,9 +124,16 @@ export function validateSendMessageParams(params: {
   mediaUrl?: string | null;
   templateName?: string | null;
   interactivePayload?: InteractiveMessagePayload | null;
+  contactPayload?: SharedContactPayload | null;
 }): void {
-  const { messageType, contentText, mediaUrl, templateName, interactivePayload } =
-    params;
+  const {
+    messageType,
+    contentText,
+    mediaUrl,
+    templateName,
+    interactivePayload,
+    contactPayload,
+  } = params;
 
   if (!messageType) {
     throw new SendMessageError('bad_request', 'message_type is required', 400);
@@ -140,6 +153,17 @@ export function validateSendMessageParams(params: {
     throw new SendMessageError(
       'bad_request',
       'content_text is required for text messages',
+      400
+    );
+  }
+
+  if (
+    messageType === 'contact' &&
+    (!contactPayload?.name?.trim() || !contactPayload.phone?.trim())
+  ) {
+    throw new SendMessageError(
+      'bad_request',
+      'A contact message requires a contact name and phone number',
       400
     );
   }
@@ -200,6 +224,7 @@ export async function sendMessageToConversation(
     templateParams,
     templateMessageParams,
     interactivePayload,
+    contactPayload,
     replyToMessageId,
   } = params;
 
@@ -217,6 +242,7 @@ export async function sendMessageToConversation(
     mediaUrl,
     templateName,
     interactivePayload,
+    contactPayload,
   });
 
   const isMediaKind = (MEDIA_KINDS as readonly string[]).includes(messageType);
@@ -364,6 +390,16 @@ export async function sendMessageToConversation(
       });
       return result.messageId;
     }
+    if (messageType === 'contact') {
+      const result = await sendContactMessage({
+        phoneNumberId: config.phone_number_id,
+        accessToken,
+        to: phone,
+        contact: contactPayload as SharedContactMessage,
+        contextMessageId,
+      });
+      return result.messageId;
+    }
     if (messageType === 'interactive') {
       const p = interactivePayload!;
       if (p.kind === 'buttons') {
@@ -479,6 +515,7 @@ export async function sendMessageToConversation(
       template_name: templateName || null,
       interactive_payload:
         messageType === 'interactive' ? interactivePayload : null,
+      contact_payload: messageType === 'contact' ? contactPayload : null,
       message_id: waMessageId,
       status: 'sent',
       reply_to_message_id: replyToMessageId || null,

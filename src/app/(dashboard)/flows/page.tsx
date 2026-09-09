@@ -170,8 +170,7 @@ export default function FlowsPage() {
       setCreateOpen(false);
       router.push(`/flows/${json.flow.id}`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t("cloneError");
-      toast.error(msg);
+      toast.error(t("cloneError"));
     } finally {
       setCreating(false);
     }
@@ -215,7 +214,7 @@ export default function FlowsPage() {
         </div>
         <GatedButton
           canAct={canCreate}
-          gateReason="create flows"
+          gateReason="crear flujos"
           onClick={() => setCreateOpen(true)}
         >
           <Plus className="h-4 w-4" />
@@ -345,7 +344,7 @@ function EmptyState({
       </p>
       <GatedButton
         canAct={canCreate}
-        gateReason="create flows"
+        gateReason="crear flujos"
         onClick={onCreate}
         className="mt-5"
       >

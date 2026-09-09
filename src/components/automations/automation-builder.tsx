@@ -698,15 +698,7 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
         // If the server blocked activation with validation issues,
         // surface the first concrete problem so the user can fix it
         // without opening DevTools for the full array.
-        const firstIssue: { path?: string; message?: string } | undefined =
-          body?.issues?.[0]
-        if (firstIssue?.message) {
-          toast.error(firstIssue.message, {
-            description: firstIssue.path ? `at ${firstIssue.path}` : undefined,
-          })
-        } else {
-          toast.error(body?.error ?? t("toasts.saveFailed"))
-        }
+        toast.error(t("toasts.saveFailed"))
         return
       }
       toast.success(isEditing ? t("toasts.saved") : t("toasts.created"))

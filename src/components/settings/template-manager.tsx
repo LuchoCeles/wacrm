@@ -295,7 +295,7 @@ export function TemplateManager() {
       setEditingId(null);
     } catch (err) {
       console.error('Submit error:', err);
-      toast.error(err instanceof Error ? err.message : t('toastSubmitFailed'));
+      toast.error(t('toastSubmitFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -322,7 +322,7 @@ export function TemplateManager() {
             `${e.name} (${e.language})`,
         );
         const suffix =
-          data.errors.length > 3 ? `, +${data.errors.length - 3} more` : '';
+          data.errors.length > 3 ? `, +${data.errors.length - 3} más` : '';
         toast.error(t('toastSyncFailed', { preview: preview.join(', ') + suffix }));
       }
       if (data.truncated) {
@@ -337,7 +337,7 @@ export function TemplateManager() {
       await fetchTemplates(user.id);
     } catch (err) {
       console.error('Template sync error:', err);
-      toast.error(err instanceof Error ? err.message : t('toastSyncError'));
+      toast.error(t('toastSyncError'));
     } finally {
       setSyncing(false);
     }
@@ -363,7 +363,7 @@ export function TemplateManager() {
       setTemplateToDelete(null);
     } catch (err) {
       console.error('Delete error:', err);
-      toast.error(err instanceof Error ? err.message : t('toastDeleteError'));
+      toast.error(t('toastDeleteError'));
     } finally {
       setDeletingId(null);
     }
@@ -475,7 +475,7 @@ export function TemplateManager() {
       setForm((f) => ({ ...f, header_media_url: publicUrl }));
       toast.success(t('toastUploadSuccess'));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('toastUploadFailed'));
+      toast.error(t('toastUploadFailed'));
     } finally {
       setUploadingHeader(false);
     }
@@ -547,7 +547,7 @@ export function TemplateManager() {
                                 ? 'text-yellow-400'
                                 : 'text-red-400'
                           }`}
-                          title="Meta quality score"
+                          title="Puntuación de calidad de Meta"
                         >
                           {template.quality_score}
                         </span>
@@ -775,7 +775,7 @@ export function TemplateManager() {
                 <div className="space-y-2 mt-2">
                   <Input
                     id="template-header-text"
-                    aria-label="Header text"
+                    aria-label="Texto del encabezado"
                     placeholder={t.raw('headerTextPlaceholder')}
                     value={form.header_content}
                     onChange={(e) =>
@@ -845,7 +845,7 @@ export function TemplateManager() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={form.header_media_url}
-                      alt="Header sample"
+                      alt="Ejemplo del encabezado"
                       className="max-h-28 rounded-md border border-border object-contain"
                     />
                   )}

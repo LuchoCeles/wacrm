@@ -218,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           continue;
         }
         lastFetchedUserIdRef.current = null;
-        setStatusDetail(error.message);
+        setStatusDetail('No se pudo cargar el perfil de la cuenta.');
         return;
       }
 
@@ -294,12 +294,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } else {
         lastFetchedUserIdRef.current = null;
-        setStatusDetail("no profiles row for the signed-in user");
+        setStatusDetail('No se encontró un perfil para la sesión iniciada.');
       }
     } catch (err) {
       console.error("[AuthProvider] fetchProfile threw:", err);
       lastFetchedUserIdRef.current = null;
-      setStatusDetail(err instanceof Error ? err.message : "profile fetch failed");
+      setStatusDetail('No se pudo cargar el perfil de la cuenta.');
     } finally {
       setProfileLoading(false);
     }

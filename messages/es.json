@@ -15,7 +15,7 @@
     "createAccount": "Crear cuenta"
   },
   "Sidebar": {
-    "title": "Plantilla de CRM para WhatsApp",
+    "title": "Logabyte WhatsApp Business CRM",
     "dashboard": "Panel",
     "inbox": "Bandeja de entrada",
     "notifications": "Notificaciones",
@@ -34,6 +34,8 @@
     "roleAgent": "Agente",
     "roleViewer": "Espectador",
     "closeMenu": "Cerrar menú",
+    "collapseSidebar": "Contraer barra lateral",
+    "expandSidebar": "Expandir barra lateral",
     "defaultUser": "Usuario",
     "defaultAvatar": "Avatar",
     "menuProfile": "Perfil",
@@ -146,7 +148,7 @@
   },
   "Inbox": {
     "page": {
-      "whatsappNotConnected": "WhatsApp® no está conectado. Ve a Configuración para conectar tu cuenta."
+      "whatsappNotConnected": "WhatsApp no está conectado. Ve a Configuración para conectar tu cuenta."
     },
     "conversationList": {
       "searchPlaceholder": "Buscar conversaciones...",
@@ -194,21 +196,37 @@
       "noCustomerMessages": "No hay mensajes del cliente"
     },
     "composer": {
-      "draftHint": "Toca el ✨ para redactar una respuesta con IA — puedes editarla antes de enviar",
       "sessionExpiredHint": "La sesión de 24 horas expiró. Usa una plantilla para retomar el contacto.",
       "templates": "Plantillas",
       "readOnlyPlaceholder": "Solo lectura — los espectadores pueden navegar pero no responder",
       "sessionExpiredPlaceholder": "Sesión expirada - usa una plantilla",
-      "typeMessagePlaceholder": "Escribe un mensaje... (Shift+Enter para nueva línea)",
+      "typeMessagePlaceholder": "Escribe un mensaje",
+      "insertEmoji": "Emojis",
+      "insertEmojiValue": "Insertar {emoji}",
+      "emojiPickerTitle": "Emojis",
       "readOnlyTitle": "Solo lectura — tu rol no puede enviar mensajes",
       "recording": "Grabando… {current} / {max}",
       "cancel": "Cancelar",
       "stopAndAttach": "Detener y adjuntar",
       "attachMedia": "Adjuntar archivo",
+      "photosAndVideos": "Fotos y videos",
       "photo": "Foto",
       "video": "Video",
       "document": "Documento",
+      "audio": "Audio",
       "voiceNote": "Nota de voz",
+      "cancelRecording": "Cancelar grabación",
+      "pauseRecording": "Pausar grabación",
+      "resumeRecording": "Reanudar grabación",
+      "playAudio": "Reproducir audio",
+      "pausePlayback": "Pausar reproducción",
+      "seekAudio": "Moverse por el audio",
+      "sendAudio": "Enviar audio",
+      "voicePlaybackError": "No se pudo reproducir la nota de voz.",
+      "contact": "Contacto",
+      "selectContact": "Seleccionar contacto",
+      "searchContacts": "Buscar contactos...",
+      "noContactsFound": "No se encontraron contactos.",
       "sendTemplate": "Enviar plantilla",
       "draftWithAI": "Redactar una respuesta con IA",
       "addCaption": "Agrega una descripción…",
@@ -229,6 +247,7 @@
       "audio": "Audio",
       "unavailable": "{label} no disponible",
       "document": "Documento",
+      "contact": "Contacto",
       "locationShared": "Ubicación compartida",
       "template": "Plantilla",
       "buttonReply": "Respuesta de botón",
@@ -266,9 +285,9 @@
       "copyFailed": "Error al copiar"
     },
     "replyQuote": {
-      "photo": "[Foto]",
-      "video": "[Video]",
+      "media": "[Fotos y videos]",
       "document": "[Documento]",
+      "contact": "[Contacto]",
       "audio": "[Audio]",
       "voiceMessage": "[Mensaje de voz]",
       "location": "[Ubicación]",

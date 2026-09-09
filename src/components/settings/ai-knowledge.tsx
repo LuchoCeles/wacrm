@@ -50,7 +50,7 @@ export function AiKnowledgeCard({
       const res = await fetch('/api/ai/knowledge');
       const data = await res.json();
       if (res.ok) setDocs(data.documents ?? []);
-      else toast.error(data.error ?? t('loadFailed'));
+      else toast.error(t('loadFailed'));
     } catch {
       toast.error(t('loadFailed'));
     } finally {
@@ -75,7 +75,7 @@ export function AiKnowledgeCard({
       const res = await fetch(`/api/ai/knowledge/${id}`);
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? t('openFailed'));
+        toast.error(t('openFailed'));
         return;
       }
       setEditing(id);
@@ -111,12 +111,12 @@ export function AiKnowledgeCard({
       const data = await res.json();
       if (res.ok) {
         // A 200 with `warning` means saved but indexing degraded.
-        if (data.warning) toast.warning(data.warning);
+        if (data.warning) toast.warning(t('saveFailed'));
         else toast.success(isNew ? t('saveSuccessNew') : t('saveSuccessUpdate'));
         cancelEdit();
         await fetchDocs();
       } else {
-        toast.error(data.error ?? t('saveFailed'));
+        toast.error(t('saveFailed'));
       }
     } catch {
       toast.error(t('saveFailed'));
@@ -133,7 +133,7 @@ export function AiKnowledgeCard({
         setDocs((d) => d.filter((x) => x.id !== id));
       } else {
         const data = await res.json();
-        toast.error(data.error ?? t('removeFailed'));
+        toast.error(t('removeFailed'));
       }
     } catch {
       toast.error(t('removeFailed'));
@@ -148,7 +148,7 @@ export function AiKnowledgeCard({
       if (res.ok && data.success) {
         toast.success(t('reindexSuccess', { count: data.reindexed }));
       } else {
-        toast.error(data.error ?? t('reindexFailed'));
+        toast.error(t('reindexFailed'));
       }
     } catch {
       toast.error(t('reindexFailed'));

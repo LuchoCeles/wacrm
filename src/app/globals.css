@@ -1,6 +1,6 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -87,7 +87,7 @@
 /* ---- MODE: neutral surfaces ---- */
 
 :root,
-html[data-mode="dark"] {
+html[data-mode='dark'] {
   --background: oklch(0.13 0.01 260);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.18 0.01 260);
@@ -116,7 +116,7 @@ html[data-mode="dark"] {
   --sidebar-border: oklch(0.28 0.01 260);
 }
 
-html[data-mode="light"] {
+html[data-mode='light'] {
   --background: oklch(0.99 0.002 260);
   --foreground: oklch(0.21 0.01 260);
   --card: oklch(1 0 0);
@@ -148,7 +148,7 @@ html[data-mode="light"] {
 /* ---- ACCENT: primary color ---- */
 
 :root,
-html[data-theme="violet"] {
+html[data-theme='violet'] {
   --primary: oklch(0.526 0.247 293);
   --primary-foreground: oklch(0.985 0 0);
   --primary-hover: oklch(0.6 0.22 293);
@@ -161,7 +161,7 @@ html[data-theme="violet"] {
   --sidebar-ring: oklch(0.526 0.247 293);
 }
 
-html[data-theme="emerald"] {
+html[data-theme='emerald'] {
   --primary: oklch(0.62 0.16 162);
   --primary-foreground: oklch(0.16 0.02 162);
   --primary-hover: oklch(0.68 0.15 162);
@@ -175,7 +175,7 @@ html[data-theme="emerald"] {
   --sidebar-ring: oklch(0.62 0.16 162);
 }
 
-html[data-theme="cobalt"] {
+html[data-theme='cobalt'] {
   --primary: oklch(0.585 0.2 254);
   --primary-foreground: oklch(0.985 0 0);
   --primary-hover: oklch(0.66 0.18 254);
@@ -189,7 +189,7 @@ html[data-theme="cobalt"] {
   --sidebar-ring: oklch(0.585 0.2 254);
 }
 
-html[data-theme="amber"] {
+html[data-theme='amber'] {
   --primary: oklch(0.745 0.16 65);
   --primary-foreground: oklch(0.18 0.03 65);
   --primary-hover: oklch(0.8 0.15 65);
@@ -203,7 +203,7 @@ html[data-theme="amber"] {
   --sidebar-ring: oklch(0.745 0.16 65);
 }
 
-html[data-theme="rose"] {
+html[data-theme='rose'] {
   --primary: oklch(0.645 0.22 16);
   --primary-foreground: oklch(0.985 0 0);
   --primary-hover: oklch(0.71 0.2 16);
@@ -221,10 +221,274 @@ html[data-theme="rose"] {
   * {
     @apply border-border outline-ring/50;
   }
+  /* Keep interactive controls recognizable across both shared and native UI.
+   * Disabled controls deliberately retain their non-interactive cursor. */
+  button:not(:disabled):not([aria-disabled='true']),
+  [role='button']:not([aria-disabled='true']):not([data-disabled]),
+  a[href]:not([aria-disabled='true']),
+  summary {
+    cursor: pointer;
+  }
+  button:disabled,
+  [role='button'][aria-disabled='true'],
+  [role='button'][data-disabled] {
+    cursor: not-allowed;
+  }
+  ::selection {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
   body {
     @apply bg-background text-foreground;
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* Shared, unobtrusive scrollbars for dense inbox surfaces. */
+
+.scrollbar-chat::-webkit-scrollbar,
+.scrollbar-composer::-webkit-scrollbar {
+  background: transparent;
+  width: 1px;
+}
+
+.scrollbar-chat,
+.scrollbar-composer {
+  overflow-y: scroll;
+}
+
+.scrollbar-emoji .epr-body::-webkit-scrollbar {
+  background: transparent;
+  width: 4px;
+}
+
+.scrollbar-chat::-webkit-scrollbar-track,
+.scrollbar-composer::-webkit-scrollbar-track,
+.scrollbar-emoji .epr-body::-webkit-scrollbar-track,
+.scrollbar-chat::-webkit-scrollbar-track-piece,
+.scrollbar-composer::-webkit-scrollbar-track-piece,
+.scrollbar-emoji .epr-body::-webkit-scrollbar-track-piece,
+.scrollbar-chat::-webkit-scrollbar-corner,
+.scrollbar-composer::-webkit-scrollbar-corner,
+.scrollbar-emoji .epr-body::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.scrollbar-chat::-webkit-scrollbar-thumb,
+.scrollbar-composer::-webkit-scrollbar-thumb,
+.scrollbar-emoji .epr-body::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--foreground) 42%, transparent);
+  border-radius: 9999px;
+}
+
+.scrollbar-chat:hover::-webkit-scrollbar-thumb,
+.scrollbar-composer:hover::-webkit-scrollbar-thumb,
+.scrollbar-emoji .epr-body:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--foreground) 60%, transparent);
+}
+
+.scrollbar-chat::-webkit-scrollbar-button,
+.scrollbar-composer::-webkit-scrollbar-button,
+.scrollbar-emoji .epr-body::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* emoji-picker-react keeps its own virtualized layout; these rules only apply
+ * the CRM shell, design tokens, and responsive height around that runtime. */
+.emoji-picker.EmojiPickerReact {
+  background: var(--popover);
+  color: var(--popover-foreground);
+  display: flex;
+  flex-direction: column;
+  height: min(500px, calc(100dvh - 152px));
+  max-height: min(500px, calc(100dvh - 152px));
+  min-height: 0;
+  overflow: hidden;
+}
+
+.emoji-picker .epr-header {
+  flex: none;
+  padding: 10px 13px 0;
+}
+
+.emoji-picker .epr-search-container {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.emoji-picker .epr-search-container input {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--foreground);
+  height: 40px;
+  outline: none;
+  padding: 0 34px;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+  width: 100%;
+}
+
+.emoji-picker .epr-search-container input:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 30%, transparent);
+}
+
+.emoji-picker .epr-search-container input {
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.emoji-picker .epr-category-nav {
+  align-items: center;
+  display: flex;
+  justify-content: space-around;
+  padding: 5px 13px 8px;
+}
+
+.emoji-picker .epr-cat-btn {
+  align-items: center;
+  /* The picker renders each category icon from its own background sprite.
+   * Only clear the colour here; resetting `background` would also hide it. */
+  background-color: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: color-mix(in oklab, var(--muted-foreground) 88%, var(--foreground));
+  cursor: pointer;
+  display: flex;
+  height: 28px;
+  justify-content: center;
+  padding: 0;
+  position: relative;
+  transition: color 150ms ease;
+  width: 28px;
+}
+
+.emoji-picker .epr-cat-btn:hover {
+  /* First sprite row is the app's white hover treatment. */
+  background-position-y: 0;
+  color: color-mix(in oklab, var(--muted-foreground) 65%, var(--foreground));
+}
+
+.emoji-picker .epr-cat-btn::after {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  width: 24px;
+  height: 3px;
+  border-radius: 9999px;
+  background: var(--primary);
+  content: '';
+  opacity: 0;
+  transform: translateX(-50%) scaleX(0.7);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.emoji-picker .epr-cat-btn.epr-active::after {
+  opacity: 1;
+  transform: translateX(-50%) scaleX(1);
+}
+
+/* The library implements its mouse-focus ring with a pseudo-element. Keep
+ * only the app's keyboard-only outline so it never overlays the sprite. */
+.emoji-picker .epr-cat-btn:focus::before {
+  content: none;
+}
+
+.emoji-picker .epr-cat-btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.emoji-picker .epr-emoji-category-label {
+  align-items: center;
+  color: var(--muted-foreground);
+  display: flex;
+  font-size: 14px;
+  font-weight: 600;
+  height: 34px;
+  line-height: 1.25;
+  padding: 0 13px;
+}
+
+.emoji-picker .epr-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  position: relative;
+  scrollbar-gutter: stable;
+}
+
+@media (max-width: 639px) {
+  .emoji-picker.EmojiPickerReact {
+    height: min(500px, calc(100dvh - 152px)) !important;
+  }
+}
+
+/* EmojiText behaves like an ordinary glyph in every inline inbox surface. */
+.emoji-text {
+  display: inline;
+}
+
+.emoji-image {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  margin: 0;
+  vertical-align: -0.16em;
+  object-fit: contain;
+}
+
+/* The editable composer measures this wrapper from its textarea's actual
+ * Unicode glyph metrics. The asset is centered inside that reserved advance
+ * width, preventing per-emoji drift of the native caret and selection. */
+.composer-emoji-slot {
+  display: inline-block;
+  height: 1em;
+  line-height: inherit;
+  overflow: visible;
+  text-align: center;
+  vertical-align: -0.16em;
+}
+
+.composer-emoji-slot .emoji-image {
+  height: 1em;
+  margin: 0;
+  vertical-align: top;
+  width: 1em;
+}
+
+/* Chromium otherwise repaints the native selected glyph over the overlay.
+ * Regional-indicator glyphs then appear as country letters (for example UY)
+ * on Windows even though the flag asset loaded correctly. */
+.scrollbar-composer::selection {
+  background: color-mix(in oklab, var(--primary) 35%, transparent);
+  color: transparent;
+}
+
+/* Firefox does not honour the WebKit pseudo-elements. Keep its native track
+ * transparent while using its thinnest available scrollbar fallback. */
+@supports not (-webkit-appearance: none) {
+  .scrollbar-chat,
+  .scrollbar-composer,
+  .scrollbar-emoji .epr-body {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--foreground) 42%, transparent)
+      transparent;
+  }
+
+  .scrollbar-chat:hover,
+  .scrollbar-composer:hover,
+  .scrollbar-emoji .epr-body:hover {
+    scrollbar-color: color-mix(in oklab, var(--foreground) 60%, transparent)
+      transparent;
   }
 }

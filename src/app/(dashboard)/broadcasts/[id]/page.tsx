@@ -186,7 +186,7 @@ export default function BroadcastDetailPage() {
       if (recsError) throw recsError;
       setRecipients(recs ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('notFound'));
+      setError(t('notFound'));
     } finally {
       setLoading(false);
     }
@@ -250,7 +250,7 @@ export default function BroadcastDetailPage() {
       if (!res.ok) {
         toast.error(
           t('toastResumeFailed', {
-            error: payload?.error || `HTTP ${res.status}`,
+            error: 'no se pudo completar la solicitud',
           }),
         );
         return;
@@ -270,7 +270,7 @@ export default function BroadcastDetailPage() {
     } catch (err) {
       toast.error(
         t('toastResumeFailed', {
-          error: err instanceof Error ? err.message : 'Unknown error',
+          error: 'error de red',
         }),
       );
     } finally {
@@ -291,7 +291,7 @@ export default function BroadcastDetailPage() {
       .eq('id', broadcastId);
     setDeleting(false);
     if (delErr) {
-      toast.error(t('toastFailedDelete', { error: delErr.message }));
+      toast.error(t('toastFailedDelete', { error: 'no se pudo eliminar la difusión' }));
       return;
     }
     toast.success(t('toastDeleted'));

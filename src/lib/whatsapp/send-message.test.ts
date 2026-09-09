@@ -65,6 +65,14 @@ describe('sendMessageToConversation — param validation (pre-DB)', () => {
     );
   });
 
+  it('requires a complete contact-card payload', async () => {
+    await expectSendError(
+      { ...base, messageType: 'contact' },
+      400,
+      /contact name and phone number/
+    );
+  });
+
   it('requires media_url for media kinds', async () => {
     for (const kind of ['image', 'video', 'document', 'audio']) {
       await expectSendError(
@@ -172,6 +180,7 @@ vi.mock('@/lib/whatsapp/meta-api', async (importOriginal) => ({
   sendTemplateMessage: (...args: unknown[]) =>
     (sendTemplateMessage as unknown as (...a: unknown[]) => unknown)(...args),
   sendMediaMessage: vi.fn(async () => ({ messageId: 'wamid.media' })),
+  sendContactMessage: vi.fn(async () => ({ messageId: 'wamid.contact' })),
   sendInteractiveButtons: vi.fn(async () => ({ messageId: 'wamid.btn' })),
   sendInteractiveList: vi.fn(async () => ({ messageId: 'wamid.list' })),
 }));
@@ -292,12 +301,16 @@ describe('sendMessageToConversation — template persistence (#483)', () => {
 
   it('reads body values out of the structured params shape too', async () => {
     const captured: CapturedWrites = {};
-    await sendMessageToConversation(sendPathDb([TEMPLATE_ROW], captured), 'acct-1', {
-      conversationId: 'cv-1',
-      messageType: 'template',
-      templateName: 'order_update',
-      templateMessageParams: { body: ['B456', 'Monday'] },
-    });
+    await sendMessageToConversation(
+      sendPathDb([TEMPLATE_ROW], captured),
+      'acct-1',
+      {
+        conversationId: 'cv-1',
+        messageType: 'template',
+        templateName: 'order_update',
+        templateMessageParams: { body: ['B456', 'Monday'] },
+      }
+    );
     expect(captured.message?.content_text).toBe(
       'Your order B456 ships on Monday'
     );
@@ -305,30 +318,39 @@ describe('sendMessageToConversation — template persistence (#483)', () => {
 
   it("does not override the composer's pre-rendered text", async () => {
     const captured: CapturedWrites = {};
-    await sendMessageToConversation(sendPathDb([TEMPLATE_ROW], captured), 'acct-1', {
-      conversationId: 'cv-1',
-      messageType: 'template',
-      templateName: 'order_update',
-      templateParams: ['A123', 'Friday'],
-      contentText: 'rendered by the composer',
-    });
+    await sendMessageToConversation(
+      sendPathDb([TEMPLATE_ROW], captured),
+      'acct-1',
+      {
+        conversationId: 'cv-1',
+        messageType: 'template',
+        templateName: 'order_update',
+        templateParams: ['A123', 'Friday'],
+        contentText: 'rendered by the composer',
+      }
+    );
     expect(captured.message?.content_text).toBe('rendered by the composer');
   });
 
   it("sends the local row's language when the caller names none", async () => {
     sendTemplateMessage.mockClear();
     const captured: CapturedWrites = {};
-    await sendMessageToConversation(sendPathDb([TEMPLATE_ROW], captured), 'acct-1', {
-      conversationId: 'cv-1',
-      messageType: 'template',
-      templateName: 'order_update',
-      templateParams: ['A123', 'Friday'],
-    });
+    await sendMessageToConversation(
+      sendPathDb([TEMPLATE_ROW], captured),
+      'acct-1',
+      {
+        conversationId: 'cv-1',
+        messageType: 'template',
+        templateName: 'order_update',
+        templateParams: ['A123', 'Friday'],
+      }
+    );
     // Previously pinned to 'en_US', which matched no row and made Meta
     // reject the send as a missing translation.
     expect(
-      (sendTemplateMessage.mock.calls[0] as unknown as [{ language: string }])[0]
-        .language
+      (
+        sendTemplateMessage.mock.calls[0] as unknown as [{ language: string }]
+      )[0].language
     ).toBe('en');
   });
 
@@ -344,5 +366,26 @@ describe('sendMessageToConversation — template persistence (#483)', () => {
     // name rather than inventing a body.
     expect(captured.message?.content_text).toBeNull();
     expect(captured.conversation?.last_message_text).toBe('[template]');
+  });
+});
+
+describe('sendMessageToConversation — contact persistence', () => {
+  it('stores the contact snapshot displayed in the inbox', async () => {
+    const captured: CapturedWrites = {};
+    await sendMessageToConversation(sendPathDb([], captured), 'acct-1', {
+      conversationId: 'cv-1',
+      messageType: 'contact',
+      contactPayload: {
+        id: 'contact-1',
+        name: 'Ada Lovelace',
+        phone: '+15551234567',
+      },
+    });
+
+    expect(captured.message?.content_type).toBe('contact');
+    expect(captured.message?.contact_payload).toMatchObject({
+      name: 'Ada Lovelace',
+      phone: '+15551234567',
+    });
   });
 });

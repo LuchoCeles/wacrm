@@ -97,7 +97,7 @@ export function QuickRepliesManager() {
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "No se pudo guardar la respuesta rápida.");
+        toast.error("No se pudo guardar la respuesta rápida.");
         return;
       }
       toast.success(draft.id ? "Respuesta rápida actualizada." : "Respuesta rápida creada.");

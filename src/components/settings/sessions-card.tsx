@@ -37,13 +37,12 @@ export function SessionsCard() {
       // triggers the usual redirect.
       const { error } = await supabase.auth.signOut({ scope: 'global' });
       if (error) {
-        toast.error(t('signOutFailed', { message: error.message }));
+        toast.error('No se pudo cerrar sesión en todos los dispositivos.');
         return;
       }
       window.location.href = '/login';
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      toast.error(msg);
+      toast.error('No se pudo cerrar sesión en todos los dispositivos.');
     } finally {
       setSigningOut(false);
     }

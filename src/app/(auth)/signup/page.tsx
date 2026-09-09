@@ -62,7 +62,7 @@ function SignupPageInner() {
     });
 
     if (error) {
-      setError(error.message);
+      setError('No se pudo crear la cuenta. Intentá nuevamente.');
       setLoading(false);
       return;
     }

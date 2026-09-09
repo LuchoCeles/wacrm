@@ -164,7 +164,7 @@ export function ProfileForm() {
         if (emailError) {
           // Partial success: name/avatar saved but email didn't.
           toast.success(t('profileSaved'));
-          toast.error(t('emailChangeFailed', { message: emailError.message }));
+          toast.error('No se pudo cambiar el correo electrónico.');
           setSaving(false);
           await refreshProfile();
           return;
@@ -184,8 +184,7 @@ export function ProfileForm() {
           : t('profileSaved'),
       );
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      toast.error(msg);
+      toast.error('No se pudo guardar el perfil.');
     } finally {
       setSaving(false);
     }
