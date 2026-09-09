@@ -213,6 +213,7 @@
       "photo": "Photo",
       "video": "Video",
       "document": "Document",
+      "audio": "Audio",
       "voiceNote": "Voice note",
       "cancelRecording": "Cancel recording",
       "pauseRecording": "Pause recording",

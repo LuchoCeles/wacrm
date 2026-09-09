@@ -213,6 +213,7 @@
       "photo": "사진",
       "video": "동영상",
       "document": "문서",
+      "audio": "오디오",
       "voiceNote": "음성 메모",
       "cancelRecording": "녹음 취소",
       "pauseRecording": "녹음 일시 정지",
