@@ -29,7 +29,7 @@ function supabaseAdmin() {
   if (!_adminClient) {
     _adminClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
   }
   return _adminClient
@@ -43,10 +43,31 @@ interface WhatsAppMessage {
   text?: { body: string }
   image?: { id: string; mime_type: string; caption?: string }
   video?: { id: string; mime_type: string; caption?: string }
-  document?: { id: string; mime_type: string; filename?: string; caption?: string }
+  document?: {
+    id: string
+    mime_type: string
+    filename?: string
+    caption?: string
+  }
   audio?: { id: string; mime_type: string }
   sticker?: { id: string; mime_type: string }
-  location?: { latitude: number; longitude: number; name?: string; address?: string }
+  /** Contact cards shared by the customer (`type: 'contacts'`). */
+  contacts?: Array<{
+    name?: {
+      formatted_name?: string
+      first_name?: string
+      last_name?: string
+    }
+    phones?: Array<{ phone?: string; wa_id?: string; type?: string }>
+    emails?: Array<{ email?: string; type?: string }>
+    org?: { company?: string }
+  }>
+  location?: {
+    latitude: number
+    longitude: number
+    name?: string
+    address?: string
+  }
   reaction?: { message_id: string; emoji: string }
   /**
    * Set when the customer taps a button or list row on an interactive
@@ -108,7 +129,7 @@ export async function GET(request: Request) {
     if (mode !== 'subscribe' || !challenge || !verifyToken) {
       return NextResponse.json(
         { error: 'Missing verification parameters' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -121,7 +142,7 @@ export async function GET(request: Request) {
       console.error('Error fetching configs for verification:', configError)
       return NextResponse.json(
         { error: 'Verification failed' },
-        { status: 403 }
+        { status: 403 },
       )
     }
 
@@ -168,13 +189,13 @@ export async function GET(request: Request) {
 
     return NextResponse.json(
       { error: 'Verification token mismatch' },
-      { status: 403 }
+      { status: 403 },
     )
   } catch (error) {
     console.error('Error in webhook GET verification:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
@@ -272,7 +293,7 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
         console.error(
           'Error fetching whatsapp_config for phone_number_id:',
           phoneNumberId,
-          configError
+          configError,
         )
         continue
       }
@@ -288,7 +309,10 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
           phoneNumberId,
           '— inbound message dropped. Resolve duplicates so each number maps to a single account.',
           'Account owners:',
-          configRows.map((r: { account_id: string; user_id: string }) => `${r.account_id} (admin ${r.user_id})`)
+          configRows.map(
+            (r: { account_id: string; user_id: string }) =>
+              `${r.account_id} (admin ${r.user_id})`,
+          ),
         )
         continue
       }
@@ -315,7 +339,7 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
           // Default ON: the column is NOT NULL DEFAULT TRUE, but a row
           // read before migration 039 lands would have it undefined,
           // and losing attachments is the failure mode worth avoiding.
-          config.mirror_inbound_media !== false
+          config.mirror_inbound_media !== false,
         )
       }
     }
@@ -409,7 +433,8 @@ async function handleStatusUpdate(status: {
     isValidStatusTransition(recipient.status, status.status)
   ) {
     const update: Record<string, unknown> = { status: status.status }
-    if (status.status === 'sent' && !('sent_at' in update)) update.sent_at = tsIso
+    if (status.status === 'sent' && !('sent_at' in update))
+      update.sent_at = tsIso
     if (status.status === 'delivered') update.delivered_at = tsIso
     if (status.status === 'read') update.read_at = tsIso
 
@@ -446,7 +471,7 @@ async function handleStatusUpdate(status: {
           whatsapp_message_id: status.id,
           conversation_id: msgRow.conversation_id,
           status: status.status,
-        }
+        },
       )
     }
   }
@@ -498,7 +523,7 @@ async function flagBroadcastReplyIfAny(accountId: string, contactId: string) {
  */
 async function lookupInternalIdByMetaId(
   metaId: string,
-  conversationId: string
+  conversationId: string,
 ): Promise<string | null> {
   const { data, error } = await supabaseAdmin()
     .from('messages')
@@ -524,19 +549,19 @@ async function lookupInternalIdByMetaId(
 async function handleReaction(
   message: WhatsAppMessage,
   conversationId: string,
-  contactId: string
+  contactId: string,
 ) {
   const reaction = message.reaction
   if (!reaction?.message_id) return
 
   const targetInternalId = await lookupInternalIdByMetaId(
     reaction.message_id,
-    conversationId
+    conversationId,
   )
   if (!targetInternalId) {
     console.warn(
       '[webhook] reaction target message not found; skipping',
-      reaction.message_id
+      reaction.message_id,
     )
     return
   }
@@ -565,7 +590,7 @@ async function handleReaction(
         actor_id: contactId,
         emoji: reaction.emoji,
       },
-      { onConflict: 'message_id,actor_type,actor_id' }
+      { onConflict: 'message_id,actor_type,actor_id' },
     )
   if (upsertError) {
     console.error('[webhook] reaction upsert failed:', upsertError.message)
@@ -586,7 +611,7 @@ async function processMessage(
   accessToken: string,
   // Per-account opt-out for the inbound-media mirror (migration 039).
   // See parseMessageContent for what it turns off.
-  mirrorMedia: boolean
+  mirrorMedia: boolean,
 ) {
   const senderPhone = normalizePhone(message.from)
   const contactName = contact.profile.name
@@ -596,7 +621,7 @@ async function processMessage(
     accountId,
     configOwnerUserId,
     senderPhone,
-    contactName
+    contactName,
   )
   if (!contactOutcome) return
   const contactRecord = contactOutcome.contact
@@ -605,7 +630,7 @@ async function processMessage(
   const convResult = await findOrCreateConversation(
     accountId,
     configOwnerUserId,
-    contactRecord.id
+    contactRecord.id,
   )
   if (!convResult) return
   const conversation = convResult.conversation
@@ -615,10 +640,15 @@ async function processMessage(
   // a reaction still fires the event, and a subscriber always sees the
   // thread open before its first message.received.
   if (convResult.created) {
-    await dispatchWebhookEvent(supabaseAdmin(), accountId, 'conversation.created', {
-      conversation_id: conversation.id,
-      contact_id: contactRecord.id,
-    })
+    await dispatchWebhookEvent(
+      supabaseAdmin(),
+      accountId,
+      'conversation.created',
+      {
+        conversation_id: conversation.id,
+        contact_id: contactRecord.id,
+      },
+    )
   }
 
   // Reactions short-circuit here — they aren't messages. We never insert
@@ -630,12 +660,17 @@ async function processMessage(
   }
 
   // Parse message content based on type
-  const { contentText, mediaUrl, mediaType, interactiveReplyId } =
-    await parseMessageContent(
-      message,
-      accessToken,
-      mirrorMedia ? { accountId } : null
-    )
+  const {
+    contentText,
+    mediaUrl,
+    mediaType,
+    interactiveReplyId,
+    contactPayload,
+  } = await parseMessageContent(
+    message,
+    accessToken,
+    mirrorMedia ? { accountId } : null,
+  )
 
   // Resolve swipe-reply context if present. A missing parent is fine —
   // we just store NULL and the UI renders the message without a quote.
@@ -643,12 +678,12 @@ async function processMessage(
   if (message.context?.id) {
     replyToInternalId = await lookupInternalIdByMetaId(
       message.context.id,
-      conversation.id
+      conversation.id,
     )
     if (!replyToInternalId) {
       console.warn(
         '[webhook] reply context parent not found:',
-        message.context.id
+        message.context.id,
       )
     }
   }
@@ -661,20 +696,29 @@ async function processMessage(
 
   // The messages.content_type CHECK constraint (widened in migration 010
   // to add 'interactive' for button/list taps) allows:
-  //   text, image, document, audio, video, location, template, interactive
+  //   text, image, document, audio, video, contact, location, template, interactive
   // Map incoming WhatsApp types that aren't in that list to the closest
   // allowed value so the INSERT doesn't fail with a constraint error.
   const ALLOWED_CONTENT_TYPES = new Set([
-    'text', 'image', 'document', 'audio', 'video',
-    'location', 'template', 'interactive',
+    'text',
+    'image',
+    'document',
+    'audio',
+    'video',
+    'contact',
+    'location',
+    'template',
+    'interactive',
   ])
   const contentType = ALLOWED_CONTENT_TYPES.has(message.type)
     ? message.type
     : message.type === 'sticker'
-      ? 'image'         // stickers are images
+      ? 'image' // stickers are images
       : message.type === 'button'
         ? 'interactive' // template quick-reply tap (issue #478)
-        : 'text'        // reaction, unknown → text fallback
+        : message.type === 'contacts'
+          ? 'contact' // one or more WhatsApp contact cards
+          : 'text' // reaction, unknown → text fallback
 
   // Determine whether this is the contact's very first inbound message
   // BEFORE we insert, so the count is accurate. Covers the case where
@@ -717,8 +761,13 @@ async function processMessage(
         // the column; null for every other content_type so existing inserts
         // behave identically.
         interactive_reply_id: interactiveReplyId,
+        // Do not mention this migration-040 column for ordinary messages.
+        // That keeps text/media delivery working while an existing deployment
+        // is catching up on its database migrations. Contact cards themselves
+        // still require migration 040 (which adds this column and type).
+        ...(contactPayload ? { contact_payload: contactPayload } : {}),
       },
-      { onConflict: 'conversation_id,message_id', ignoreDuplicates: true }
+      { onConflict: 'conversation_id,message_id', ignoreDuplicates: true },
     )
     .select('id')
 
@@ -734,7 +783,7 @@ async function processMessage(
   if (!insertedRows || insertedRows.length === 0) {
     console.info(
       '[webhook] duplicate inbound message ignored (idempotent replay):',
-      message.id
+      message.id,
     )
     return
   }
@@ -751,7 +800,7 @@ async function processMessage(
     {
       p_conversation_id: conversation.id,
       p_last_message_text: contentText || `[${message.type}]`,
-    }
+    },
   )
 
   if (convError) {
@@ -793,19 +842,18 @@ async function processMessage(
     userId: configOwnerUserId,
     contactId: contactRecord.id,
     conversationId: conversation.id,
-    message:
-      interactiveReplyId
-        ? {
-            kind: 'interactive_reply',
-            reply_id: interactiveReplyId,
-            reply_title: contentText ?? '',
-            meta_message_id: message.id,
-          }
-        : {
-            kind: 'text',
-            text: contentText ?? message.text?.body ?? '',
-            meta_message_id: message.id,
-          },
+    message: interactiveReplyId
+      ? {
+          kind: 'interactive_reply',
+          reply_id: interactiveReplyId,
+          reply_title: contentText ?? '',
+          meta_message_id: message.id,
+        }
+      : {
+          kind: 'text',
+          text: contentText ?? message.text?.body ?? '',
+          meta_message_id: message.id,
+        },
     isFirstInboundMessage,
   })
   const flowConsumed = flowResult.consumed
@@ -841,7 +889,8 @@ async function processMessage(
   // manually-imported contacts sending for the first time. We dispatch both
   // so users can pick whichever semantic they want; an automation that
   // listens to only one trigger runs only when that trigger matches.
-  if (contactOutcome.wasCreated) automationTriggers.unshift('new_contact_created')
+  if (contactOutcome.wasCreated)
+    automationTriggers.unshift('new_contact_created')
   if (isFirstInboundMessage) automationTriggers.unshift('first_inbound_message')
   // Awaited — not fire-and-forget. We're inside the route's `after()`
   // block, which only keeps the function alive for promises it can see, so
@@ -901,7 +950,7 @@ async function parseMessageContent(
   accessToken: string,
   // Tenancy + opt-out for the media mirror. Null disables mirroring
   // entirely, which is what the account-level toggle does.
-  mirror: { accountId: string } | null
+  mirror: { accountId: string } | null,
 ): Promise<{
   contentText: string | null
   mediaUrl: string | null
@@ -914,6 +963,8 @@ async function parseMessageContent(
    * tap with the right affordance. Null for everything else.
    */
   interactiveReplyId: string | null
+  /** One card for a single share; an array when WhatsApp sent several. */
+  contactPayload: import('@/types').SharedContactsPayload | null
 }> {
   // getMediaUrl signature is (mediaId, accessToken) — earlier code had
   // the args swapped, so every verification hit an invalid Meta URL and
@@ -934,7 +985,7 @@ async function parseMessageContent(
   // attachment that expires.
   const verifyAndBuildUrl = async (
     mediaId: string,
-    fileName?: string | null
+    fileName?: string | null,
   ): Promise<string | null> => {
     try {
       const info = await getMediaUrl({ mediaId, accessToken })
@@ -958,7 +1009,7 @@ async function parseMessageContent(
     } catch (error) {
       console.error(
         `Failed to verify media ${mediaId} with Meta:`,
-        error instanceof Error ? error.message : error
+        error instanceof Error ? error.message : error,
       )
       return null
     }
@@ -971,6 +1022,7 @@ async function parseMessageContent(
     mediaUrl: null,
     mediaType: null,
     interactiveReplyId: null,
+    contactPayload: null,
   }
 
   switch (message.type) {
@@ -1010,7 +1062,7 @@ async function parseMessageContent(
           // when a caption displaced the filename in content_text.
           mediaUrl: await verifyAndBuildUrl(
             message.document.id,
-            message.document.filename
+            message.document.filename,
           ),
           mediaType: message.document.mime_type,
         }
@@ -1040,10 +1092,56 @@ async function parseMessageContent(
       }
       return empty
 
+    case 'contacts': {
+      // Meta always includes a name object, but contact cards can omit a
+      // phone (for example, an email-only vCard). Preserve those cards too;
+      // the empty phone simply isn't rendered in the inbox.
+      const contacts = (message.contacts ?? [])
+        .map((contact) => {
+          const name =
+            contact.name?.formatted_name?.trim() ||
+            [contact.name?.first_name, contact.name?.last_name]
+              .filter(Boolean)
+              .join(' ')
+              .trim()
+          if (!name) return null
+
+          return {
+            name,
+            phone:
+              contact.phones
+                ?.find((phone) => phone.phone?.trim())
+                ?.phone?.trim() || '',
+            email:
+              contact.emails
+                ?.find((email) => email.email?.trim())
+                ?.email?.trim() || null,
+            company: contact.org?.company?.trim() || null,
+          }
+        })
+        .filter(
+          (contact): contact is NonNullable<typeof contact> => contact !== null,
+        )
+
+      if (!contacts.length) {
+        return { ...empty, contentText: '[Contact shared]' }
+      }
+
+      return {
+        ...empty,
+        contentText: contacts.map((contact) => contact.name).join(', '),
+        contactPayload: contacts.length === 1 ? contacts[0] : contacts,
+      }
+    }
+
     case 'location':
       if (message.location) {
         const loc = message.location
-        const locationText = [loc.name, loc.address, `${loc.latitude},${loc.longitude}`]
+        const locationText = [
+          loc.name,
+          loc.address,
+          `${loc.latitude},${loc.longitude}`,
+        ]
           .filter(Boolean)
           .join(' - ')
         return { ...empty, contentText: locationText }
@@ -1116,7 +1214,7 @@ async function findOrCreateContact(
   accountId: string,
   configOwnerUserId: string,
   phone: string,
-  name: string
+  name: string,
 ): Promise<ContactOutcome | null> {
   // Find an existing contact for this account by phone. The shared
   // helper pre-filters in SQL by the last-8-digit suffix (so we don't

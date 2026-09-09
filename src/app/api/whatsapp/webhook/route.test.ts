@@ -87,8 +87,7 @@ vi.mock('@supabase/supabase-js', () => ({
                 eq: () => ({
                   in: () => ({
                     order: () => ({
-                      limit: () =>
-                        Promise.resolve({ data: [], error: null }),
+                      limit: () => Promise.resolve({ data: [], error: null }),
                     }),
                   }),
                 }),
@@ -390,6 +389,64 @@ describe('inbound webhook: template quick-reply buttons (#478)', () => {
   })
 })
 
+describe('inbound webhook: shared contact cards', () => {
+  it('stores a received WhatsApp contact card as a contact message', async () => {
+    await runWebhook({
+      id: 'wamid.CONTACT1',
+      from: '15551230000',
+      timestamp: '1700000000',
+      type: 'contacts',
+      contacts: [
+        {
+          name: { formatted_name: 'Grace Hopper' },
+          phones: [{ phone: '+15551234567', type: 'CELL' }],
+          emails: [{ email: 'grace@example.test', type: 'WORK' }],
+          org: { company: 'US Navy' },
+        },
+      ],
+    })
+
+    expect(h.state.upsertCalls[0].row).toMatchObject({
+      content_type: 'contact',
+      content_text: 'Grace Hopper',
+      contact_payload: {
+        name: 'Grace Hopper',
+        phone: '+15551234567',
+        email: 'grace@example.test',
+        company: 'US Navy',
+      },
+    })
+  })
+
+  it('preserves every card when a contacts message contains several', async () => {
+    await runWebhook({
+      id: 'wamid.CONTACT2',
+      from: '15551230000',
+      timestamp: '1700000000',
+      type: 'contacts',
+      contacts: [
+        {
+          name: { formatted_name: 'Ada Lovelace' },
+          phones: [{ phone: '+15551230001' }],
+        },
+        {
+          name: { formatted_name: 'Alan Turing' },
+          phones: [{ phone: '+15551230002' }],
+        },
+      ],
+    })
+
+    expect(h.state.upsertCalls[0].row).toMatchObject({
+      content_type: 'contact',
+      content_text: 'Ada Lovelace, Alan Turing',
+      contact_payload: [
+        { name: 'Ada Lovelace', phone: '+15551230001' },
+        { name: 'Alan Turing', phone: '+15551230002' },
+      ],
+    })
+  })
+})
+
 describe('inbound webhook: inbound media is mirrored (#466)', () => {
   const IMAGE_MESSAGE = {
     id: 'wamid.IMG1',
@@ -430,7 +487,9 @@ describe('inbound webhook: inbound media is mirrored (#466)', () => {
   })
 
   it('falls back to the proxy URL when the download from Meta throws', async () => {
-    mockDownloadMedia.mockRejectedValueOnce(new Error('Media download failed: 404'))
+    mockDownloadMedia.mockRejectedValueOnce(
+      new Error('Media download failed: 404'),
+    )
 
     await runWebhook(IMAGE_MESSAGE)
 

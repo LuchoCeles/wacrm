@@ -258,7 +258,7 @@ export interface Message {
    * source contact can later change or be deleted without altering what was
    * sent to the recipient.
    */
-  contact_payload?: SharedContactPayload | null;
+  contact_payload?: SharedContactsPayload | null;
   /**
    * True when the AI auto-reply bot generated + sent this message (as
    * opposed to a human agent or a deterministic Flow/automation send,
@@ -276,6 +276,13 @@ export interface SharedContactPayload {
   email?: string | null;
   company?: string | null;
 }
+
+/**
+ * A contact message sent by the CRM contains one card, while an inbound
+ * WhatsApp `contacts` message can contain several cards at once.
+ */
+export type SharedContactsPayload =
+  SharedContactPayload | SharedContactPayload[];
 
 export type ReactionActor = 'customer' | 'agent';
 

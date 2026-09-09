@@ -138,38 +138,50 @@ function MessageContent({
       return <MediaDocumentBubble message={message} t={t} />;
 
     case 'contact': {
-      const contact = message.contact_payload;
+      const payload = message.contact_payload;
+      const contacts = payload
+        ? Array.isArray(payload)
+          ? payload
+          : [payload]
+        : [];
       return (
-        <div className="flex min-w-48 items-center gap-2.5">
-          <span
-            className={cn(
-              'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-              isAgent
-                ? 'bg-primary-foreground/20 text-primary-foreground'
-                : 'bg-primary/15 text-primary'
-            )}
-          >
-            <ContactRound className="h-4 w-4" />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">
-              <EmojiText
-                text={contact?.name || message.content_text || t('contact')}
-              />
-            </p>
-            {contact?.phone && (
-              <p
+        <div className="flex min-w-48 flex-col gap-2">
+          {(contacts.length ? contacts : [null]).map((contact, index) => (
+            <div
+              className="flex items-center gap-2.5"
+              key={contact?.id || `${contact?.name || 'contact'}-${index}`}
+            >
+              <span
                 className={cn(
-                  'truncate text-xs',
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
                   isAgent
-                    ? 'text-primary-foreground/70'
-                    : 'text-muted-foreground'
+                    ? 'bg-primary-foreground/20 text-primary-foreground'
+                    : 'bg-primary/15 text-primary'
                 )}
               >
-                {contact.phone}
-              </p>
-            )}
-          </div>
+                <ContactRound className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">
+                  <EmojiText
+                    text={contact?.name || message.content_text || t('contact')}
+                  />
+                </p>
+                {contact?.phone && (
+                  <p
+                    className={cn(
+                      'truncate text-xs',
+                      isAgent
+                        ? 'text-primary-foreground/70'
+                        : 'text-muted-foreground'
+                    )}
+                  >
+                    {contact.phone}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       );
     }
