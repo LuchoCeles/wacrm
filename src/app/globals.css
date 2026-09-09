@@ -302,8 +302,8 @@ html[data-theme='rose'] {
   color: var(--popover-foreground);
   display: flex;
   flex-direction: column;
-  height: min(500px, calc(100dvh - 96px));
-  max-height: min(500px, calc(100dvh - 96px));
+  height: min(500px, calc(100dvh - 152px));
+  max-height: min(500px, calc(100dvh - 152px));
   min-height: 0;
   overflow: hidden;
 }
@@ -369,13 +369,9 @@ html[data-theme='rose'] {
 }
 
 .emoji-picker .epr-cat-btn:hover {
+  /* First sprite row is the app's white hover treatment. */
   background-position-y: 0;
   color: color-mix(in oklab, var(--muted-foreground) 65%, var(--foreground));
-}
-
-.emoji-picker .epr-cat-btn.epr-active {
-  background-position-y: 0;
-  color: var(--primary);
 }
 
 .emoji-picker .epr-cat-btn::after {
@@ -399,8 +395,8 @@ html[data-theme='rose'] {
   transform: translateX(-50%) scaleX(1);
 }
 
-/* The library's default focus ring is a circle. Use the app ring for keyboard
- * focus without introducing a selected-state pill or circle. */
+/* The library implements its mouse-focus ring with a pseudo-element. Keep
+ * only the app's keyboard-only outline so it never overlays the sprite. */
 .emoji-picker .epr-cat-btn:focus::before {
   content: none;
 }
@@ -433,7 +429,7 @@ html[data-theme='rose'] {
 
 @media (max-width: 639px) {
   .emoji-picker.EmojiPickerReact {
-    height: min(500px, calc(100dvh - 96px)) !important;
+    height: min(500px, calc(100dvh - 152px)) !important;
   }
 }
 

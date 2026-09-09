@@ -931,6 +931,7 @@ export function MessageComposer({
                 side="top"
                 align="start"
                 sideOffset={8}
+                collisionPadding={{ top: 64, right: 12, bottom: 12, left: 12 }}
                 keepMounted
                 className="border-border bg-popover w-[calc(100vw-24px)] max-w-[520px] overflow-hidden p-0 duration-150 [will-change:transform,opacity]"
               >

@@ -160,7 +160,10 @@ export function EmojiPickerContent({
         emojiData={emojiData}
         emojiStyle={EmojiStyle.APPLE}
         getEmojiUrl={getPickerEmojiAssetUrlByUnified}
-        height="min(500px, calc(100dvh - 96px))"
+        // Leave room for the inbox header, the composer, and the gap above
+        // its trigger. Otherwise a 500px picker can overlap both controls
+        // in a short viewport.
+        height="min(500px, calc(100dvh - 152px))"
         onEmojiClick={handleEmojiClick}
         open={open}
         previewConfig={{ showPreview: false }}
