@@ -3,9 +3,13 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import {
+  CONVERSATION_ASSIGNMENT_FILTERS,
   CONVERSATION_SELECT,
+  EMPTY_CONVERSATION_ASSIGNMENT_COUNTS,
   matchesContactFilters,
   normalizeConversations,
+  type ConversationAssignmentCounts,
+  type ConversationAssignmentFilter,
 } from '@/lib/inbox/conversations';
 import { cn } from '@/lib/utils';
 import type { Conversation, ConversationStatus, Tag } from '@/types';
@@ -27,6 +31,8 @@ import { segmentGraphemes } from '@/lib/emojis/unicode';
 
 interface ConversationListProps {
   activeConversationId: string | null;
+  assignmentFilter: ConversationAssignmentFilter;
+  onAssignmentFilterChange: (filter: ConversationAssignmentFilter) => void;
   onSelect: (conversation: Conversation) => void;
   conversations: Conversation[];
   onConversationsLoaded: (conversations: Conversation[]) => void;
@@ -47,8 +53,42 @@ const STATUS_COLORS: Record<ConversationStatus, string> = {
 
 type InboxFilter = ConversationStatus | 'all' | 'unread';
 
+type AssignmentCountColumn = 'all_count' | 'mine_count' | 'unassigned_count';
+
+function toCount(value: unknown): number {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number(value)
+        : 0;
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 0;
+}
+
+function readAssignmentCount(
+  payload: unknown,
+  column: AssignmentCountColumn
+): number {
+  if (!Array.isArray(payload)) return 0;
+  const row = payload[0];
+  if (!row || typeof row !== 'object') return 0;
+  return toCount((row as Record<string, unknown>)[column]);
+}
+
+function normalizeAssignmentCounts(
+  payload: unknown
+): ConversationAssignmentCounts {
+  return {
+    all: readAssignmentCount(payload, 'all_count'),
+    mine: readAssignmentCount(payload, 'mine_count'),
+    unassigned: readAssignmentCount(payload, 'unassigned_count'),
+  };
+}
+
 export function ConversationList({
   activeConversationId,
+  assignmentFilter,
+  onAssignmentFilterChange,
   onSelect,
   conversations,
   onConversationsLoaded,
@@ -72,6 +112,10 @@ export function ConversationList({
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<InboxFilter>('all');
   const [loading, setLoading] = useState(true);
+  const [assignmentCounts, setAssignmentCounts] =
+    useState<ConversationAssignmentCounts>(
+      EMPTY_CONVERSATION_ASSIGNMENT_COUNTS
+    );
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
   // Broadcast audience filtering. Company is an exact match on the field.
@@ -101,26 +145,47 @@ export function ConversationList({
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await supabase
-        .from('conversations')
+      setLoading(true);
+      const conversationsRequest = supabase
+        .rpc('inbox_conversations', {
+          p_assignment_filter: assignmentFilter,
+        })
         .select(CONVERSATION_SELECT)
         .order('last_message_at', { ascending: false });
+      const countsRequest = supabase.rpc('inbox_assignment_counts');
+      const [
+        { data: conversationsData, error: conversationsError },
+        { data: countsData, error: countsError },
+      ] = await Promise.all([conversationsRequest, countsRequest]);
 
       if (cancelled) return;
 
-      if (error) {
+      if (conversationsError) {
         // Supabase errors have non-enumerable properties — log fields explicitly
         console.error('Failed to fetch conversations:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
+          message: conversationsError.message,
+          details: conversationsError.details,
+          hint: conversationsError.hint,
+          code: conversationsError.code,
         });
         setLoading(false);
         return;
       }
 
-      onConversationsLoadedRef.current(normalizeConversations(data ?? []));
+      if (countsError) {
+        console.error('Failed to fetch Inbox assignment counts:', {
+          message: countsError.message,
+          details: countsError.details,
+          hint: countsError.hint,
+          code: countsError.code,
+        });
+      } else {
+        setAssignmentCounts(normalizeAssignmentCounts(countsData));
+      }
+
+      onConversationsLoadedRef.current(
+        normalizeConversations(conversationsData ?? [])
+      );
       setLoading(false);
     })();
 
@@ -130,7 +195,7 @@ export function ConversationList({
     // `resyncToken` is included so the parent can force a refetch when
     // the realtime channel reconnects or the tab regains focus — catches
     // up on any events sent while the WS was disconnected or throttled.
-  }, [resyncToken]);
+  }, [assignmentFilter, resyncToken]);
 
   // Tag definitions for the filter picker — loaded once so labels/colours
   // stay stable regardless of which conversations happen to be loaded.
@@ -225,6 +290,23 @@ export function ConversationList({
   );
 
   const activeFilter = FILTER_OPTIONS.find((o) => o.value === filter);
+  const assignmentLabels: Record<ConversationAssignmentFilter, string> = {
+    all: t('assignmentAll'),
+    mine: t('assignmentMine'),
+    unassigned: t('assignmentUnassigned'),
+  };
+  const assignmentTabs = CONVERSATION_ASSIGNMENT_FILTERS.map((value) => ({
+    value,
+    label: assignmentLabels[value],
+    count: assignmentCounts[value],
+  }));
+
+  const emptyStateMessage =
+    assignmentFilter === 'mine'
+      ? t('noAssignedConversations')
+      : assignmentFilter === 'unassigned'
+        ? t('noUnassignedConversations')
+        : t('noConversations');
 
   return (
     // w-full on mobile so the list occupies the whole viewport when it's
@@ -241,6 +323,46 @@ export function ConversationList({
             placeholder={t('searchPlaceholder')}
             className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 pl-9 text-sm"
           />
+        </div>
+
+        <div
+          role="group"
+          aria-label={t('assignmentFilters')}
+          className="-mx-1 flex max-w-full [scrollbar-width:none] gap-1 overflow-x-auto px-1 pb-0.5 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {assignmentTabs.map((tab) => {
+            const isActive = assignmentFilter === tab.value;
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => onAssignmentFilterChange(tab.value)}
+                aria-pressed={isActive}
+                className={cn(
+                  'focus-visible:ring-ring relative inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+                  isActive
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                <span>{tab.label}</span>
+                <span
+                  className={cn(
+                    'bg-background/70 text-muted-foreground inline-flex min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-4',
+                    isActive && 'bg-primary/10 text-primary'
+                  )}
+                >
+                  {tab.count}
+                </span>
+                {isActive && (
+                  <span
+                    aria-hidden
+                    className="bg-primary absolute right-2 bottom-0 left-2 h-0.5 rounded-full"
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex flex-wrap items-center gap-1">
@@ -416,9 +538,7 @@ export function ConversationList({
           </div>
         ) : filtered.length === 0 ? (
           <div className="px-4 py-12 text-center">
-            <p className="text-muted-foreground text-sm">
-              {t('noConversations')}
-            </p>
+            <p className="text-muted-foreground text-sm">{emptyStateMessage}</p>
           </div>
         ) : (
           <div className="flex flex-col">

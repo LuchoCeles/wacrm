@@ -1,4 +1,51 @@
-import type { Conversation, Contact, Tag } from "@/types";
+import type { Conversation, Contact, Tag } from '@/types';
+
+/**
+ * Server-backed Inbox partition. Kept separate from the existing status
+ * filter because the two filters compose rather than replace one another.
+ */
+export type ConversationAssignmentFilter = 'all' | 'mine' | 'unassigned';
+
+export const CONVERSATION_ASSIGNMENT_FILTERS = [
+  'all',
+  'mine',
+  'unassigned',
+] as const satisfies readonly ConversationAssignmentFilter[];
+
+export interface ConversationAssignmentCounts {
+  all: number;
+  mine: number;
+  unassigned: number;
+}
+
+export const EMPTY_CONVERSATION_ASSIGNMENT_COUNTS: ConversationAssignmentCounts =
+  {
+    all: 0,
+    mine: 0,
+    unassigned: 0,
+  };
+
+/**
+ * Mirrors the database assignment partition for local realtime updates only.
+ * Fetches always go through the authenticated RPC; this helper prevents an
+ * out-of-scope Realtime row from briefly appearing before the next resync.
+ */
+export function matchesConversationAssignmentFilter(
+  conversation: Conversation,
+  filter: ConversationAssignmentFilter,
+  currentUserId: string | null | undefined
+): boolean {
+  switch (filter) {
+    case 'mine':
+      return Boolean(
+        currentUserId && conversation.assigned_agent_id === currentUserId
+      );
+    case 'unassigned':
+      return conversation.assigned_agent_id == null;
+    case 'all':
+      return true;
+  }
+}
 
 /**
  * Conversation select that embeds the contact plus its tags, so the Inbox
@@ -7,11 +54,11 @@ import type { Conversation, Contact, Tag } from "@/types";
  * flattens them onto `contact.tags`.
  */
 export const CONVERSATION_SELECT =
-  "*, contact:contacts(*, contact_tags(tags(*)))";
+  '*, contact:contacts(*, contact_tags(tags(*)))';
 
 /** Raw shape returned by {@link CONVERSATION_SELECT} before flattening. */
 type RawContact = Contact & { contact_tags?: { tags: Tag | null }[] };
-type RawConversation = Omit<Conversation, "contact"> & {
+type RawConversation = Omit<Conversation, 'contact'> & {
   contact?: RawContact | null;
 };
 
@@ -37,7 +84,7 @@ export function normalizeConversation(raw: RawConversation): Conversation {
 }
 
 export function normalizeConversations(
-  rows: RawConversation[],
+  rows: RawConversation[]
 ): Conversation[] {
   return rows.map(normalizeConversation);
 }
@@ -56,7 +103,7 @@ export interface ContactFilters {
  */
 export function matchesContactFilters(
   conversation: Conversation,
-  { tagIds, company }: ContactFilters,
+  { tagIds, company }: ContactFilters
 ): boolean {
   if (tagIds.length > 0) {
     const contactTagIds = conversation.contact?.tags ?? [];
