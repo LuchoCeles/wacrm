@@ -17,7 +17,14 @@
  * are list-only and have no canvas analogue.
  */
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslations } from 'next-intl';
 import {
   CircleAlert,
@@ -51,8 +58,8 @@ import { type ValidationIssue } from '@/lib/flows/validate';
 import {
   NODE_META,
   NodeIconChip,
-  displayNodeName,
   groupNodeTypesByCategory,
+  nodeDisplayName,
   nodeColors,
   slugify,
   summarizeNode,
@@ -60,7 +67,7 @@ import {
   type NodeType,
 } from './shared';
 import { NodeConfigForm } from './forms/node-config-form';
-import { NodeKeySelect } from './forms/fields';
+import { NodeKeySelect, NodeNameField } from './forms/fields';
 import { IssueLine } from './validation-panel';
 import { useFlowEditor, type BuilderState } from './flow-editor-state';
 
@@ -79,7 +86,7 @@ export function FlowBuilder() {
   const {
     state,
     setState,
-    issues,
+    visibleIssues,
     flashKey,
     addNode: addNodeCtx,
     updateNode,
@@ -160,7 +167,7 @@ export function FlowBuilder() {
       <TriggerPanel
         state={state}
         setState={setState}
-        triggerIssues={issues.filter((i) => i.scope === 'trigger')}
+        triggerIssues={visibleIssues.filter((i) => i.scope === 'trigger')}
         t={t}
       />
 
@@ -176,7 +183,9 @@ export function FlowBuilder() {
 
         {state.nodes.length === 0 ? (
           <div className="border-border bg-card/50 text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
-            {t.rich('nodesEmpty', { strong: (chunks) => <strong>{chunks}</strong> })}
+            {t.rich('nodesEmpty', {
+              strong: (chunks) => <strong>{chunks}</strong>,
+            })}
           </div>
         ) : (
           state.nodes.map((node) => (
@@ -188,7 +197,7 @@ export function FlowBuilder() {
               isEntry={state.entry_node_id === node.node_key}
               isFlashed={flashKey === node.node_key}
               cardRef={setNodeRef(node.node_key)}
-              issues={issues.filter(
+              issues={visibleIssues.filter(
                 (i) => i.scope === 'node' && i.node_key === node.node_key
               )}
               onToggle={() => toggleExpanded(node.node_key)}
@@ -275,7 +284,9 @@ function TriggerPanel({
 }) {
   return (
     <section className="border-border bg-card rounded-lg border p-4">
-      <h2 className="text-foreground mb-3 text-sm font-semibold">{t('triggerTitle')}</h2>
+      <h2 className="text-foreground mb-3 text-sm font-semibold">
+        {t('triggerTitle')}
+      </h2>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
           <label className="text-muted-foreground mb-1 block text-xs">
@@ -302,9 +313,7 @@ function TriggerPanel({
               <SelectItem value="first_inbound_message">
                 {t('triggerFirstInboundTitle')}
               </SelectItem>
-              <SelectItem value="manual">
-                {t('triggerManualTitle')}
-              </SelectItem>
+              <SelectItem value="manual">{t('triggerManualTitle')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -358,7 +367,9 @@ function EntryPicker({
   return (
     <section className="border-border bg-card flex items-center gap-3 rounded-lg border p-3">
       <CornerDownRight className="text-primary h-4 w-4 shrink-0" />
-      <span className="text-muted-foreground text-xs">{t('entryNodeTitle')}</span>
+      <span className="text-muted-foreground text-xs">
+        {t('entryNodeTitle')}
+      </span>
       <NodeKeySelect
         value={state.entry_node_id}
         nodes={state.nodes}
@@ -403,7 +414,6 @@ function NodeCard({
   onSetEntry: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
-  const meta = NODE_META[node.node_type];
   const c = nodeColors(node.node_type);
   const hasError = issues.some((i) => i.severity === 'error');
   const tSummary = useTranslations('Flows.summary');
@@ -441,7 +451,7 @@ function NodeCard({
               {t(`nodes.${node.node_type}.label`)}
             </span>
             <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">
-              {displayNodeName(node.node_key)}
+              {nodeDisplayName(node, t(`nodes.${node.node_type}.label`))}
             </span>
             {isEntry && (
               <Badge
@@ -531,6 +541,10 @@ function NodeConfigWithAdvanced({
     node.node_type === 'send_buttons' || node.node_type === 'send_list';
   return (
     <div className="@container flex min-w-0 flex-col gap-3">
+      <NodeNameField
+        node={node}
+        onChange={(node_name) => onUpdateConfig({ node_name })}
+      />
       <NodeConfigForm
         node={node}
         allNodes={allNodes}
@@ -580,7 +594,13 @@ function NodeConfigWithAdvanced({
 // Add-node menu
 // ============================================================
 
-function AddNodeButton({ onAdd, t }: { onAdd: (type: NodeType) => void; t: ReturnType<typeof useTranslations> }) {
+function AddNodeButton({
+  onAdd,
+  t,
+}: {
+  onAdd: (type: NodeType) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
   const types: NodeType[] = [
     'start',
     'send_buttons',

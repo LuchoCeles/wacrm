@@ -62,6 +62,35 @@ export interface BuilderNode {
   position_y?: number;
 }
 
+/**
+ * Returns the label an author gave a node, falling back to the legacy
+ * node-key presentation. `node_name` deliberately lives in `config`: it is
+ * editor-only metadata that travels with the existing JSONB payload, while
+ * `node_key` remains the stable identifier used by the runner and edges.
+ */
+export function nodeDisplayName(
+  node: Pick<BuilderNode, 'node_key' | 'config'> &
+    Partial<Pick<BuilderNode, 'node_type'>>,
+  typeLabel?: string
+): string {
+  const customName = node.config.node_name;
+  if (typeof customName === 'string' && customName.trim()) {
+    return customName.trim();
+  }
+
+  const knownName = NODE_DISPLAY_NAMES[node.node_key];
+  if (knownName) return knownName;
+
+  if (node.node_type && typeLabel) {
+    const sequence = node.node_key
+      .slice(node.node_type.length)
+      .match(/^_(\d+)$/)?.[1];
+    return sequence ? `${typeLabel} ${sequence}` : typeLabel;
+  }
+
+  return displayNodeName(node.node_key);
+}
+
 // ============================================================
 // Per-node-type metadata used to render icons + labels everywhere
 // the user sees a node summary.
@@ -336,6 +365,11 @@ const NODE_DISPLAY_NAMES: Record<string, string> = {
   pedir_empresa: 'Solicitar empresa',
   ask_question: 'Solicitar consulta',
   pedir_consulta: 'Solicitar consulta',
+  if_else: 'Si / si no',
+  condition: 'Si / si no',
+  tag_contact: 'Etiquetar contacto',
+  set_tag: 'Etiquetar contacto',
+  send_media: 'Enviar archivo',
   handoff: 'Transferir a ventas',
   transferencia: 'Transferir a ventas',
 };
@@ -410,7 +444,10 @@ export function summarizeNode(
       }
       return rowCount > 0
         ? t
-          ? t('optionsAcrossSections', { rowCount, sectionCount: sections.length })
+          ? t('optionsAcrossSections', {
+              rowCount,
+              sectionCount: sections.length,
+            })
           : `${rowCount} option${rowCount === 1 ? '' : 's'} across ${sections.length} section${sections.length === 1 ? '' : 's'}`
         : null;
     }
@@ -421,9 +458,15 @@ export function summarizeNode(
       const url = typeof cfg.media_url === 'string' ? cfg.media_url : '';
       const caption = typeof cfg.caption === 'string' ? cfg.caption : '';
       const label = mediaType
-        ? t ? t(mediaType) || (mediaType.charAt(0).toUpperCase() + mediaType.slice(1)) : mediaType.charAt(0).toUpperCase() + mediaType.slice(1)
-        : t ? t('media') : 'Media';
-      if (!url) return t ? t('noFile', { label }) : `${label} (no file uploaded)`;
+        ? t
+          ? t(mediaType) ||
+            mediaType.charAt(0).toUpperCase() + mediaType.slice(1)
+          : mediaType.charAt(0).toUpperCase() + mediaType.slice(1)
+        : t
+          ? t('media')
+          : 'Media';
+      if (!url)
+        return t ? t('noFile', { label }) : `${label} (no file uploaded)`;
       const name = filename || url.split('/').pop() || 'file';
       return caption
         ? `${label}: ${truncate(name, 30)} · ${truncate(caption, 40)}`
@@ -451,17 +494,25 @@ export function summarizeNode(
             : 'var';
       const subjectStr =
         subject === 'tag'
-          ? t ? t('hasTag', { tag: truncate(subjectKey, 24) }) : `has tag ${truncate(subjectKey, 24)}`
+          ? t
+            ? t('hasTag', { tag: truncate(subjectKey, 24) })
+            : `has tag ${truncate(subjectKey, 24)}`
           : `${subject}.${subjectKey}`;
       const op =
         cfg.operator === 'equals'
           ? '=='
           : cfg.operator === 'contains'
-            ? t ? t('opContains') : 'contains'
+            ? t
+              ? t('opContains')
+              : 'contains'
             : cfg.operator === 'present'
-              ? t ? t('opExists') : 'exists'
+              ? t
+                ? t('opExists')
+                : 'exists'
               : cfg.operator === 'absent'
-                ? t ? t('opMissing') : 'missing'
+                ? t
+                  ? t('opMissing')
+                  : 'missing'
                 : '';
       const value = typeof cfg.value === 'string' ? cfg.value : '';
       const valStr =
@@ -471,14 +522,25 @@ export function summarizeNode(
       return subject === 'tag' ? subjectStr : `${subjectStr} ${op}${valStr}`;
     }
     case 'set_tag': {
-      const mode = cfg.mode === 'remove' ? (t ? t('modeRemove') : 'Remove') : (t ? t('modeAdd') : 'Add');
+      const mode =
+        cfg.mode === 'remove'
+          ? t
+            ? t('modeRemove')
+            : 'Remove'
+          : t
+            ? t('modeAdd')
+            : 'Add';
       const tagId = typeof cfg.tag_id === 'string' ? cfg.tag_id : '';
       // No tag name available without an async lookup here; show a
       // short prefix of the UUID so users can disambiguate between
       // multiple set_tag nodes at a glance.
       return tagId
-        ? t ? t('tagPicked', { mode, tag: tagId.slice(0, 8) }) : `${mode} tag ${tagId.slice(0, 8)}…`
-        : t ? t('tagNone', { mode }) : `${mode} tag (none picked)`;
+        ? t
+          ? t('tagPicked', { mode, tag: tagId.slice(0, 8) })
+          : `${mode} tag ${tagId.slice(0, 8)}…`
+        : t
+          ? t('tagNone', { mode })
+          : `${mode} tag (none picked)`;
     }
     case 'handoff': {
       const note = typeof cfg.note === 'string' ? cfg.note : '';

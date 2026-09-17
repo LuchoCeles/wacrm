@@ -1,9 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest';
 
-import {
-  parseCreateFlowPayload,
-  parseUpdateFlowPayload,
-} from './payload'
+import { parseCreateFlowPayload, parseUpdateFlowPayload } from './payload';
 
 describe('flow API payload parsing', () => {
   it('accepts incomplete but structurally valid draft nodes', () => {
@@ -18,34 +15,61 @@ describe('flow API payload parsing', () => {
           position_y: -8,
         },
       ],
-    })
+    });
 
-    expect(result).toMatchObject({ ok: true })
-  })
+    expect(result).toMatchObject({ ok: true });
+  });
+
+  it('preserves a node name stored with the node configuration', () => {
+    const result = parseUpdateFlowPayload({
+      nodes: [
+        {
+          node_key: 'pricing_message',
+          node_type: 'send_message',
+          config: {
+            node_name: 'Enviar precios',
+            text: 'Estos son nuestros precios.',
+            next_node_key: '',
+          },
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        nodes: [
+          {
+            config: { node_name: 'Enviar precios' },
+          },
+        ],
+      },
+    });
+  });
 
   it('rejects invalid route-boundary values before they reach JSONB', () => {
-    expect(parseCreateFlowPayload({ name: 42 }).ok).toBe(false)
+    expect(parseCreateFlowPayload({ name: 42 }).ok).toBe(false);
     expect(
       parseUpdateFlowPayload({
         nodes: [{ node_key: 'one', node_type: 'end', config: [] }],
-      }).ok,
-    ).toBe(false)
+      }).ok
+    ).toBe(false);
     expect(
       parseUpdateFlowPayload({
         nodes: [
           { node_key: 'same', node_type: 'end', config: {} },
           { node_key: 'same', node_type: 'end', config: {} },
         ],
-      }).ok,
-    ).toBe(false)
-  })
+      }).ok
+    ).toBe(false);
+  });
 
   it('rejects unsupported node and trigger types', () => {
-    expect(parseCreateFlowPayload({ trigger_type: 'webhook' }).ok).toBe(false)
+    expect(parseCreateFlowPayload({ trigger_type: 'webhook' }).ok).toBe(false);
     expect(
       parseUpdateFlowPayload({
         nodes: [{ node_key: 'x', node_type: 'http_fetch', config: {} }],
-      }).ok,
-    ).toBe(false)
-  })
-})
+      }).ok
+    ).toBe(false);
+  });
+});

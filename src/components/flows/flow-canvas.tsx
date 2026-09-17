@@ -36,7 +36,14 @@
  * list view reads.
  */
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   applyNodeChanges,
   Background,
@@ -78,10 +85,9 @@ import {
 } from '@/lib/flows/edges';
 import { autoLayout, shouldAutoLayout } from '@/lib/flows/layout';
 import {
-  NODE_META,
   NodeIconChip,
-  displayNodeName,
   groupNodeTypesByCategory,
+  nodeDisplayName,
   nodeColors,
   summarizeNode,
   type BuilderNode,
@@ -98,7 +104,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useFlowEditor } from './flow-editor-state';
 import { NodeConfigForm } from './forms/node-config-form';
-import { NodeSelectLabel } from './forms/fields';
+import { NodeNameField, NodeSelectLabel } from './forms/fields';
 
 // React-Flow node `data` payload — the bits our custom renderer needs.
 interface NodeData extends Record<string, unknown> {
@@ -138,7 +144,6 @@ function slotColor(nodeType: NodeType, slotId: string, fallback: string) {
 function FlowNodeCard({ data, selected }: NodeProps) {
   const t = useTranslations('Flows.builder');
   const { node, isEntry, isFlashed } = data as NodeData;
-  const meta = NODE_META[node.node_type];
   const c = nodeColors(node.node_type);
   const tSummary = useTranslations('Flows.summary');
   const summary = summarizeNode(node, tSummary);
@@ -206,7 +211,7 @@ function FlowNodeCard({ data, selected }: NodeProps) {
         )}
       </div>
       <div className="text-muted-foreground mt-2 truncate text-[11px] font-medium">
-        {displayNodeName(node.node_key)}
+        {nodeDisplayName(node, t(`nodes.${node.node_type}.label`))}
       </div>
       {summary && (
         <div className="text-muted-foreground mt-1 line-clamp-2 text-xs leading-relaxed">
@@ -216,29 +221,37 @@ function FlowNodeCard({ data, selected }: NodeProps) {
 
       {isMultiSlot && (
         <div className="border-border mt-2.5 flex flex-col gap-1 border-t pt-2.5">
-          {slots.map((slot) => (
-            <div
-              key={slot.id}
-              className="text-muted-foreground relative flex items-center justify-between gap-2 rounded px-1 py-0.5 text-[11px]"
-            >
-              <span className="truncate" title={slot.label}>
-                {slot.label}
-              </span>
-              <Handle
-                type="source"
-                id={slot.id}
-                position={Position.Right}
-                style={{
-                  borderColor: slotColor(node.node_type, slot.id, c.solid),
-                }}
-                // Override default absolute positioning so the handle
-                // sits flush with the right edge of the card instead
-                // of floating at vertical center. The negative offset
-                // matches the card's px-3 + the handle's own radius.
-                className="!bg-card !relative !top-auto !right-auto !h-2.5 !w-2.5 !translate-x-[14px] !transform-none !border-2"
-              />
-            </div>
-          ))}
+          {slots.map((slot) => {
+            const label =
+              node.node_type === 'condition' && slot.id === 'true'
+                ? t('form.trueBranch')
+                : node.node_type === 'condition' && slot.id === 'false'
+                  ? t('form.falseBranch')
+                  : slot.label;
+            return (
+              <div
+                key={slot.id}
+                className="text-muted-foreground relative flex items-center justify-between gap-2 rounded px-1 py-0.5 text-[11px]"
+              >
+                <span className="truncate" title={label}>
+                  {label}
+                </span>
+                <Handle
+                  type="source"
+                  id={slot.id}
+                  position={Position.Right}
+                  style={{
+                    borderColor: slotColor(node.node_type, slot.id, c.solid),
+                  }}
+                  // Override default absolute positioning so the handle
+                  // sits flush with the right edge of the card instead
+                  // of floating at vertical center. The negative offset
+                  // matches the card's px-3 + the handle's own radius.
+                  className="!bg-card !relative !top-auto !right-auto !h-2.5 !w-2.5 !translate-x-[14px] !transform-none !border-2"
+                />
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -371,7 +384,12 @@ function FlowCanvasInner() {
       source: e.source,
       target: e.target,
       sourceHandle: e.sourceHandle,
-      label: e.label,
+      label:
+        e.sourceHandle === 'true'
+          ? t('form.trueBranch')
+          : e.sourceHandle === 'false'
+            ? t('form.falseBranch')
+            : e.label,
       // Mode-aware via CSS tokens so edge chrome flips with light/dark.
       labelStyle: { fill: 'var(--muted-foreground)', fontSize: 11 },
       labelBgStyle: { fill: 'var(--card)' },
@@ -381,7 +399,7 @@ function FlowCanvasInner() {
     }));
 
     return rfEdges;
-  }, [builderNodes]);
+  }, [builderNodes, t]);
 
   const handleNodesChange = useCallback(
     (changes: NodeChange<RfNode<NodeData>>[]) => {
@@ -516,7 +534,7 @@ function FlowCanvasInner() {
     return (
       <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 text-sm">
         <p>{t('noNodesYet')}</p>
-        <CanvasAddNodeButton t={t} />
+        <CanvasAddNodeButton t={t} onAdded={setSelectedNodeKey} />
       </div>
     );
   }
@@ -572,7 +590,7 @@ function FlowCanvasInner() {
             className="!border-border !bg-card !rounded-xl !border !shadow-[0_6px_20px_-8px_rgba(0,0,0,0.5)]"
           />
           <Panel position="top-left" className="!top-4 !left-4">
-            <CanvasAddNodeButton t={t} />
+            <CanvasAddNodeButton t={t} onAdded={setSelectedNodeKey} />
           </Panel>
         </ReactFlow>
       </div>
@@ -626,19 +644,20 @@ function NodeEditSheet({
       </Sheet>
     );
   }
-  const meta = NODE_META[node.node_type];
   const c = nodeColors(node.node_type);
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent
         side="right"
-        className="border-border bg-popover flex w-full flex-col gap-0 border-l p-0 sm:max-w-md"
+        className="border-border bg-popover flex h-[100dvh] w-full flex-col gap-0 border-l p-0 sm:max-w-md"
       >
-        <SheetHeader className="border-border flex-row items-center gap-3 space-y-0 border-b px-5 py-4">
+        <SheetHeader className="border-border shrink-0 flex-row items-center gap-3 space-y-0 border-b px-5 py-4 pr-14">
           <NodeIconChip type={node.node_type} size={36} iconSize={18} />
           <div className="min-w-0 flex-1">
             <SheetTitle className="flex items-center gap-2 text-[11px] font-semibold tracking-wider uppercase">
-              <span style={{ color: c.text }}>{t(`nodes.${node.node_type}.label`)}</span>
+              <span style={{ color: c.text }}>
+                {t(`nodes.${node.node_type}.label`)}
+              </span>
               {isEntry && (
                 <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-emerald-300 uppercase">
                   {t('badgeEntry')}
@@ -651,11 +670,16 @@ function NodeEditSheet({
           </div>
           <NodeSelectLabel
             node={node}
-            className="bg-muted text-muted-foreground shrink-0 max-w-40 rounded px-1.5 py-0.5 text-[10px]"
+            className="bg-muted text-muted-foreground hidden max-w-40 shrink-0 rounded px-1.5 py-0.5 text-[10px] lg:inline-flex"
           />
         </SheetHeader>
 
-        <div className="@container flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">
+        <div className="@container flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">
+          <NodeNameField
+            node={node}
+            onChange={(node_name) => onUpdateConfig({ node_name })}
+            autoFocus
+          />
           <NodeConfigForm
             node={node}
             allNodes={allNodes}
@@ -664,9 +688,14 @@ function NodeEditSheet({
           />
         </div>
 
-        <SheetFooter className="border-border border-t px-5 py-3 sm:flex-row sm:justify-between">
+        <SheetFooter className="border-border shrink-0 border-t px-5 py-3 sm:flex-row sm:justify-between">
           {!isEntry ? (
-            <Button variant="ghost" size="sm" onClick={onSetEntry}>
+            <Button
+              className="w-full sm:w-auto"
+              variant="ghost"
+              size="sm"
+              onClick={onSetEntry}
+            >
               {t('setAsEntry')}
             </Button>
           ) : (
@@ -676,7 +705,7 @@ function NodeEditSheet({
             variant="ghost"
             size="sm"
             onClick={onDelete}
-            className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
+            className="w-full text-red-400 hover:bg-red-500/10 hover:text-red-300 sm:w-auto"
           >
             <Trash2 className="h-3.5 w-3.5" />
             {t('deleteNode')}
@@ -707,12 +736,19 @@ const ADD_NODE_TYPES: NodeType[] = [
   'end',
 ];
 
-function CanvasAddNodeButton({ t }: { t: ReturnType<typeof useTranslations> }) {
+function CanvasAddNodeButton({
+  t,
+  onAdded,
+}: {
+  t: ReturnType<typeof useTranslations>;
+  onAdded?: (key: string) => void;
+}) {
   const reactFlow = useReactFlow();
   const { addNode, updateNodePosition } = useFlowEditor();
 
   const handleAdd = (type: NodeType) => {
     const key = addNode(type);
+    onAdded?.(key);
     // Place the new node at the visible canvas center. The Panel's
     // own DOM lives inside ReactFlow so we can climb up to find the
     // .react-flow root and read its bounding rect. If we can't find
@@ -759,31 +795,28 @@ function CanvasAddNodeButton({ t }: { t: ReturnType<typeof useTranslations> }) {
               <DropdownMenuLabel className="text-muted-foreground px-2 py-1.5 text-[11px] font-semibold tracking-wider uppercase">
                 {t(`categories.${group.id}`)}
               </DropdownMenuLabel>
-              {group.types.map((t_type) => {
-                const meta = NODE_META[t_type];
-                return (
-                  <DropdownMenuItem
-                    key={t_type}
-                    onClick={() => handleAdd(t_type)}
-                    className="gap-3 py-2"
-                  >
-                    <NodeIconChip
-                      type={t_type}
-                      size={28}
-                      iconSize={16}
-                      className="rounded-md"
-                    />
-                    <span className="flex flex-col">
-                      <span className="text-popover-foreground text-[13px] font-semibold">
-                        {t(`nodes.${t_type}.label`)}
-                      </span>
-                      <span className="text-muted-foreground text-[11.5px]">
-                        {t(`nodes.${t_type}.blurb`)}
-                      </span>
+              {group.types.map((t_type) => (
+                <DropdownMenuItem
+                  key={t_type}
+                  onClick={() => handleAdd(t_type)}
+                  className="gap-3 py-2"
+                >
+                  <NodeIconChip
+                    type={t_type}
+                    size={28}
+                    iconSize={16}
+                    className="rounded-md"
+                  />
+                  <span className="flex flex-col">
+                    <span className="text-popover-foreground text-[13px] font-semibold">
+                      {t(`nodes.${t_type}.label`)}
                     </span>
-                  </DropdownMenuItem>
-                );
-              })}
+                    <span className="text-muted-foreground text-[11.5px]">
+                      {t(`nodes.${t_type}.blurb`)}
+                    </span>
+                  </span>
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuGroup>
           </Fragment>
         ))}

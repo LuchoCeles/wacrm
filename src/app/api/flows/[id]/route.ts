@@ -2,7 +2,66 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
-import { parseUpdateFlowPayload } from '@/lib/flows/payload'
+import { parseUpdateFlowPayload, type FlowNodePayload } from '@/lib/flows/payload'
+
+/**
+ * Replaces a graph through the transactional RPC introduced by migration 042.
+ *
+ * Local and self-hosted installations can run a newer application image before
+ * they apply its database migrations. In that small window PostgREST returns
+ * PGRST202 because `replace_flow_definition` is absent from its schema cache.
+ * The service client can safely use the pre-042 write path as a compatibility
+ * fallback; every other error is returned intact and never risks a non-atomic
+ * replacement.
+ */
+async function replaceFlowDefinition(
+  admin: ReturnType<typeof supabaseAdmin>,
+  flowId: string,
+  flowPatch: Record<string, unknown>,
+  nodes: FlowNodePayload[],
+) {
+  const { error: rpcError } = await admin.rpc('replace_flow_definition', {
+    p_flow_id: flowId,
+    p_flow_patch: flowPatch,
+    p_nodes: nodes,
+  })
+  if (!rpcError) return null
+
+  // PGRST202 is PostgREST's explicit "function is not in the schema cache"
+  // response. Do not fall back for constraint or database errors: the RPC is
+  // present in those cases and preserves the last complete graph atomically.
+  if (rpcError.code !== 'PGRST202') return rpcError
+
+  console.warn(
+    '[flows] replace_flow_definition is unavailable; using the compatibility write path. Apply migration 042 to restore atomic saves.',
+  )
+
+  const { error: updateError } = await admin
+    .from('flows')
+    .update({ ...flowPatch, updated_at: new Date().toISOString() })
+    .eq('id', flowId)
+  if (updateError) return updateError
+
+  const { error: deleteError } = await admin
+    .from('flow_nodes')
+    .delete()
+    .eq('flow_id', flowId)
+  if (deleteError) return deleteError
+
+  if (nodes.length === 0) return null
+
+  const { error: insertError } = await admin.from('flow_nodes').insert(
+    nodes.map((node) => ({
+      flow_id: flowId,
+      node_key: node.node_key,
+      node_type: node.node_type,
+      config: node.config,
+      position_x: node.position_x ?? 0,
+      position_y: node.position_y ?? 0,
+    })),
+  )
+  return insertError
+}
 
 /**
  * GET   /api/flows/[id]  — fetch one flow with its nodes.
@@ -122,11 +181,7 @@ export async function PUT(
     // The RPC wraps the flow update and graph replacement in one database
     // transaction. A duplicate key / constraint failure therefore leaves
     // the last good definition intact instead of deleting every node.
-    const { error } = await admin.rpc('replace_flow_definition', {
-      p_flow_id: id,
-      p_flow_patch: flowPatch,
-      p_nodes: body.nodes,
-    })
+    const error = await replaceFlowDefinition(admin, id, flowPatch, body.nodes)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   } else {
     const { error: updErr } = await admin

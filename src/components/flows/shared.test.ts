@@ -5,6 +5,7 @@ import {
   NODE_META,
   displayNodeName,
   groupNodeTypesByCategory,
+  nodeDisplayName,
   type NodeType,
 } from './shared';
 
@@ -55,11 +56,47 @@ describe('displayNodeName', () => {
     expect(displayNodeName('respuesta_pagos')).toBe(
       'Informar pagos y comprobantes'
     );
+    expect(displayNodeName('if_else')).toBe('Si / si no');
+    expect(displayNodeName('tag_contact')).toBe('Etiquetar contacto');
+    expect(displayNodeName('send_media')).toBe('Enviar archivo');
   });
 
   it('formats custom technical keys without exposing underscores', () => {
     expect(displayNodeName('seguimiento_post_venta')).toBe(
       'Seguimiento Post Venta'
     );
+  });
+});
+
+describe('nodeDisplayName', () => {
+  it('prefers an author-provided node name over the technical key', () => {
+    expect(
+      nodeDisplayName({
+        node_key: 'send_message',
+        config: { node_name: 'Enviar precios' },
+      })
+    ).toBe('Enviar precios');
+  });
+
+  it('falls back to the readable key for legacy or blank node names', () => {
+    expect(
+      nodeDisplayName({
+        node_key: 'seguimiento_post_venta',
+        config: { node_name: '   ' },
+      })
+    ).toBe('Seguimiento Post Venta');
+  });
+
+  it('uses the translated node type for unnamed generated nodes', () => {
+    expect(
+      nodeDisplayName(
+        {
+          node_key: 'collect_input_2',
+          node_type: 'collect_input',
+          config: {},
+        },
+        'Recopilar respuesta'
+      )
+    ).toBe('Recopilar respuesta 2');
   });
 });

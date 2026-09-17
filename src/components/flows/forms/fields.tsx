@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 /**
  * Reusable field components shared across every per-node form.
@@ -18,20 +18,20 @@
  * (introduced in this PR) mount the exact same form components.
  */
 
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { X } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { displayNodeName, NODE_META, type BuilderNode } from "../shared";
+} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { nodeDisplayName, NODE_META, type BuilderNode } from '../shared';
 
 export function TextRow({
   label,
@@ -46,7 +46,9 @@ export function TextRow({
 }) {
   return (
     <div className="min-w-0">
-      <label className="mb-1 block text-xs text-muted-foreground">{label}</label>
+      <label className="text-muted-foreground mb-1 block text-xs">
+        {label}
+      </label>
       {rows > 1 ? (
         <Textarea
           value={value}
@@ -79,17 +81,19 @@ export function NextNodeRow({
   onChange: (v: string) => void;
   label: string;
 }) {
-  const t = useTranslations("Flows.builder.form");
+  const t = useTranslations('Flows.builder.form');
   return (
     <div>
-      <label className="mb-1 block text-xs text-muted-foreground">{label}</label>
+      <label className="text-muted-foreground mb-1 block text-xs">
+        {label}
+      </label>
       <div className="flex min-w-0 items-center gap-1.5">
         <NodeKeySelect
           value={value || null}
           nodes={allNodes}
           excludeKey={currentKey}
-          onChange={(v) => onChange(v ?? "")}
-          placeholder={t("pickNextNode")}
+          onChange={(v) => onChange(v ?? '')}
+          placeholder={t('pickNextNode')}
           className="flex-1"
         />
         {value && (
@@ -97,15 +101,53 @@ export function NextNodeRow({
             type="button"
             variant="ghost"
             size="icon-sm"
-            onClick={() => onChange("")}
-            className="shrink-0 text-muted-foreground hover:text-foreground"
-            aria-label={t("clearNextNode")}
-            title={t("clearNextNode")}
+            onClick={() => onChange('')}
+            className="text-muted-foreground hover:text-foreground shrink-0"
+            aria-label={t('clearNextNode')}
+            title={t('clearNextNode')}
           >
             <X className="h-3.5 w-3.5" />
           </Button>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Human-facing node name. Unlike node_key this can be changed freely: the
+ * runner never reads it and every destination picker renders it immediately.
+ */
+export function NodeNameField({
+  node,
+  onChange,
+  autoFocus = false,
+}: {
+  node: BuilderNode;
+  onChange: (value: string) => void;
+  /** Focus this when a node has just been created in the canvas. */
+  autoFocus?: boolean;
+}) {
+  const t = useTranslations('Flows.builder');
+  const value =
+    typeof node.config.node_name === 'string' ? node.config.node_name : '';
+
+  return (
+    <div className="min-w-0">
+      <label className="text-muted-foreground mb-1 block text-xs">
+        {t('nodeNameLabel')}
+      </label>
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={t('nodeNamePlaceholder')}
+        maxLength={100}
+        autoFocus={autoFocus}
+        className="bg-muted"
+      />
+      <p className="text-muted-foreground mt-1 text-[11px]">
+        {t('nodeNameHint')}
+      </p>
     </div>
   );
 }
@@ -119,13 +161,16 @@ export function NodeSelectLabel({
   className?: string;
 }) {
   const Icon = NODE_META[node.node_type].icon;
-  const name = displayNodeName(node.node_key);
+  const t = useTranslations('Flows.builder');
+  const name = nodeDisplayName(node, t(`nodes.${node.node_type}.label`));
   return (
     <span
-      className={cn("inline-flex min-w-0 items-center gap-1.5", className)}
+      className={cn('inline-flex min-w-0 items-center gap-1.5', className)}
       title={name}
     >
-      <Icon className={cn("h-3 w-3 shrink-0", NODE_META[node.node_type].color)} />
+      <Icon
+        className={cn('h-3 w-3 shrink-0', NODE_META[node.node_type].color)}
+      />
       <span className="truncate">{name}</span>
     </span>
   );
@@ -147,14 +192,14 @@ export function NodeKeySelect({
   className?: string;
 }) {
   const options = nodes.filter((n) => n.node_key !== excludeKey);
-  const emptyLabel = placeholder ?? "—";
+  const emptyLabel = placeholder ?? '—';
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className={cn("w-full min-w-0 bg-muted", className)}>
+      <SelectTrigger className={cn('bg-muted w-full min-w-0', className)}>
         <SelectValue placeholder={emptyLabel}>
           {(selectedValue) => {
             const selectedNode = options.find(
-              (node) => node.node_key === selectedValue,
+              (node) => node.node_key === selectedValue
             );
             return selectedNode ? (
               <NodeSelectLabel node={selectedNode} />

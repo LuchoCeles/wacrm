@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 /**
  * Single source of truth for the flow editor's state.
@@ -41,18 +41,18 @@ import {
   useRef,
   useState,
   type ReactNode,
-} from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+} from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 import {
   validateFlowForActivation,
   type ValidationIssue,
-} from "@/lib/flows/validate";
-import { useTranslations } from "next-intl";
-import { relinkNodeReferences, unlinkNodeReferences } from "@/lib/flows/edges";
-import type { FlowNodeRow, FlowRow } from "@/lib/flows/types";
-import { NODE_META, slugify, type BuilderNode, type NodeType } from "./shared";
+} from '@/lib/flows/validate';
+import { useTranslations } from 'next-intl';
+import { relinkNodeReferences, unlinkNodeReferences } from '@/lib/flows/edges';
+import type { FlowNodeRow, FlowRow } from '@/lib/flows/types';
+import { NODE_META, slugify, type BuilderNode, type NodeType } from './shared';
 
 // ============================================================
 // State shape
@@ -61,10 +61,10 @@ import { NODE_META, slugify, type BuilderNode, type NodeType } from "./shared";
 export interface BuilderState {
   name: string;
   description: string;
-  trigger_type: "keyword" | "first_inbound_message" | "manual";
+  trigger_type: 'keyword' | 'first_inbound_message' | 'manual';
   trigger_config: Record<string, unknown>;
   entry_node_id: string | null;
-  status: FlowRow["status"];
+  status: FlowRow['status'];
   nodes: BuilderNode[];
 }
 
@@ -81,14 +81,16 @@ export interface FlowEditorContextValue {
    * setters below would force them to fan out the update.
    */
   setState: (
-    updaterOrValue:
-      | BuilderState
-      | ((prev: BuilderState) => BuilderState),
+    updaterOrValue: BuilderState | ((prev: BuilderState) => BuilderState)
   ) => void;
   dirty: boolean;
   saving: boolean;
   activating: boolean;
+  /** Full activation validation result, used to keep activation safe. */
   issues: ValidationIssue[];
+  /** Issues intentionally revealed after the author asks to activate. */
+  visibleIssues: ValidationIssue[];
+  validationVisible: boolean;
   canActivate: boolean;
 
   // Node mutations. addNode returns the generated key so the caller
@@ -99,13 +101,13 @@ export interface FlowEditorContextValue {
   updateNodeConfig: (key: string, patch: Record<string, unknown>) => void;
   updateNodePosition: (key: string, x: number, y: number) => void;
   updateNodePositions: (
-    positions: Record<string, { x: number; y: number }>,
+    positions: Record<string, { x: number; y: number }>
   ) => void;
   removeNode: (key: string) => void;
 
   // Actions
   save: () => Promise<boolean>;
-  setStatus: (status: BuilderState["status"]) => Promise<void>;
+  setStatus: (status: BuilderState['status']) => Promise<void>;
   deleteFlow: () => Promise<boolean>;
 
   /**
@@ -136,63 +138,61 @@ export function uniqueNodeKey(base: string, existing: BuilderNode[]): string {
 
 export function defaultConfigFor(type: NodeType): Record<string, unknown> {
   switch (type) {
-    case "start":
-      return { next_node_key: "" };
-    case "send_message":
-      return { text: "", next_node_key: "" };
-    case "send_buttons":
+    case 'start':
+      return { next_node_key: '' };
+    case 'send_message':
+      return { text: '', next_node_key: '' };
+    case 'send_buttons':
       return {
-        text: "",
-        buttons: [{ reply_id: "yes", title: "Sí", next_node_key: "" }],
+        text: '',
+        buttons: [{ reply_id: 'yes', title: 'Sí', next_node_key: '' }],
       };
-    case "send_list":
+    case 'send_list':
       return {
-        text: "",
-        button_label: "Ver opciones",
+        text: '',
+        button_label: 'Ver opciones',
         sections: [
           {
-            title: "",
-            rows: [
-              { reply_id: "row_1", title: "Opción 1", next_node_key: "" },
-            ],
+            title: '',
+            rows: [{ reply_id: 'row_1', title: 'Opción 1', next_node_key: '' }],
           },
         ],
       };
-    case "send_media":
+    case 'send_media':
       return {
-        media_type: "image",
-        media_url: "",
-        caption: "",
-        filename: "",
-        next_node_key: "",
+        media_type: 'image',
+        media_url: '',
+        caption: '',
+        filename: '',
+        next_node_key: '',
       };
-    case "collect_input":
+    case 'collect_input':
       return {
-        prompt_text: "",
-        var_key: "answer",
-        next_node_key: "",
+        prompt_text: '',
+        var_key: 'answer',
+        next_node_key: '',
       };
-    case "condition":
+    case 'condition':
       return {
-        subject: "var",
-        subject_key: "",
-        operator: "equals",
-        value: "",
-        true_next: "",
-        false_next: "",
+        subject: 'var',
+        subject_key: '',
+        operator: 'equals',
+        value: '',
+        true_next: '',
+        false_next: '',
       };
-    case "set_tag":
-      return { mode: "add", tag_id: "", next_node_key: "" };
-    case "handoff":
-      return { note: "" };
-    case "end":
+    case 'set_tag':
+      return { mode: 'add', tag_id: '', next_node_key: '' };
+    case 'handoff':
+      return { note: '' };
+    case 'end':
       return {};
   }
 }
 
 export function applyNodePositions(
   nodes: BuilderNode[],
-  positions: Record<string, { x: number; y: number }>,
+  positions: Record<string, { x: number; y: number }>
 ): BuilderNode[] {
   return nodes.map((n) => {
     const next = positions[n.node_key];
@@ -215,9 +215,7 @@ const FlowEditorCtx = createContext<FlowEditorContextValue | null>(null);
 export function useFlowEditor(): FlowEditorContextValue {
   const ctx = useContext(FlowEditorCtx);
   if (!ctx) {
-    throw new Error(
-      "useFlowEditor must be called inside <FlowEditorProvider>",
-    );
+    throw new Error('useFlowEditor must be called inside <FlowEditorProvider>');
   }
   return ctx;
 }
@@ -238,11 +236,11 @@ export function FlowEditorProvider({
   children,
 }: ProviderProps) {
   const router = useRouter();
-  const t = useTranslations("Flows.editorState");
+  const t = useTranslations('Flows.editorState');
 
   const [state, setStateRaw] = useState<BuilderState>(() => ({
     name: initialFlow.name,
-    description: initialFlow.description ?? "",
+    description: initialFlow.description ?? '',
     trigger_type: initialFlow.trigger_type,
     trigger_config: initialFlow.trigger_config as Record<string, unknown>,
     entry_node_id: initialFlow.entry_node_id,
@@ -258,6 +256,11 @@ export function FlowEditorProvider({
 
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
+  // Drafts are deliberately allowed to be incomplete. Showing every
+  // activation error as soon as a blank node is added made normal authoring
+  // look broken, so validation becomes visible when the author tries to
+  // activate. From then on it updates live as they fix the flow.
+  const [validationVisible, setValidationVisible] = useState(false);
   // dirty flips on user edits; status-only updates (after the activate
   // API succeeds) use setStateRaw so they don't falsely re-flag the
   // form as dirty.
@@ -289,7 +292,7 @@ export function FlowEditorProvider({
         window.clearTimeout(flashTimeoutRef.current);
       }
     },
-    [],
+    []
   );
 
   // Browser-level reload / tab-close / external-link guard. SPA
@@ -303,10 +306,10 @@ export function FlowEditorProvider({
       e.preventDefault();
       // Modern browsers ignore the return value but require something
       // truthy to actually show the native prompt.
-      e.returnValue = "";
+      e.returnValue = '';
     };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
 
   // ---- Validation ----
@@ -319,13 +322,17 @@ export function FlowEditorProvider({
           trigger_config: state.trigger_config,
           entry_node_id: state.entry_node_id,
         },
-        state.nodes,
+        state.nodes
       ),
-    [state],
+    [state]
   );
   const canActivate = useMemo(
-    () => issues.every((i) => i.severity !== "error"),
-    [issues],
+    () => issues.every((i) => i.severity !== 'error'),
+    [issues]
+  );
+  const visibleIssues = useMemo(
+    () => (validationVisible ? issues : []),
+    [issues, validationVisible]
   );
 
   // ---- Save (PUT) ----
@@ -333,8 +340,8 @@ export function FlowEditorProvider({
     setSaving(true);
     try {
       const res = await fetch(`/api/flows/${initialFlow.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: state.name,
           description: state.description || null,
@@ -349,21 +356,22 @@ export function FlowEditorProvider({
         throw new Error(json.error ?? `Save failed: ${res.status}`);
       }
       setDirty(false);
-      toast.success(t("saved"));
+      toast.success(t('saved'));
       return true;
-    } catch (err) {
+    } catch {
       toast.error('No se pudo guardar el flujo.');
       return false;
     } finally {
       setSaving(false);
     }
-  }, [initialFlow.id, state]);
+  }, [initialFlow.id, state, t]);
 
   // ---- Activate / Pause / Archive ----
   const setStatus = useCallback(
-    async (next: BuilderState["status"]) => {
-      if (next === "active" && !canActivate) {
-        toast.error(t("fixIssues"));
+    async (next: BuilderState['status']) => {
+      if (next === 'active' && !canActivate) {
+        setValidationVisible(true);
+        toast.error(t('fixIssues'));
         return;
       }
       setActivating(true);
@@ -371,13 +379,13 @@ export function FlowEditorProvider({
         // Always save first so the activation validator sees the
         // latest state — the user shouldn't have to remember "save
         // then activate".
-        if (next === "active") {
+        if (next === 'active') {
           const saved = await save();
           if (!saved) return;
         }
         const res = await fetch(`/api/flows/${initialFlow.id}/activate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: next }),
         });
         if (!res.ok) {
@@ -386,31 +394,31 @@ export function FlowEditorProvider({
         }
         setStateRaw((s) => ({ ...s, status: next }));
         toast.success(
-          next === "active"
-            ? t("statusActivated")
-            : next === "archived"
-              ? t("statusArchived")
-              : t("statusDraft")
+          next === 'active'
+            ? t('statusActivated')
+            : next === 'archived'
+              ? t('statusArchived')
+              : t('statusDraft')
         );
-      } catch (err) {
-      toast.error('No se pudo actualizar el estado del flujo.');
+      } catch {
+        toast.error('No se pudo actualizar el estado del flujo.');
       } finally {
         setActivating(false);
       }
     },
-    [canActivate, save, initialFlow.id],
+    [canActivate, save, initialFlow.id, t]
   );
 
   // ---- Delete ----
   const deleteFlow = useCallback(async () => {
     try {
       const res = await fetch(`/api/flows/${initialFlow.id}`, {
-        method: "DELETE",
+        method: 'DELETE',
       });
       if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
-      router.push("/flows");
+      router.push('/flows');
       return true;
-    } catch (err) {
+    } catch {
       toast.error('No se pudo eliminar el flujo.');
       return false;
     }
@@ -427,16 +435,15 @@ export function FlowEditorProvider({
           // pointer move with the final key in the same state update.
           const node_key = uniqueNodeKey(
             requestedKey,
-            s.nodes.filter((n) => n.node_key !== key),
+            s.nodes.filter((n) => n.node_key !== key)
           );
           const relinked = relinkNodeReferences(s.nodes, key, node_key);
           return {
             ...s,
             nodes: relinked.map((n) =>
-              n.node_key === key ? { ...n, ...patch, node_key } : n,
+              n.node_key === key ? { ...n, ...patch, node_key } : n
             ),
-            entry_node_id:
-              s.entry_node_id === key ? node_key : s.entry_node_id,
+            entry_node_id: s.entry_node_id === key ? node_key : s.entry_node_id,
           };
         });
         return;
@@ -444,11 +451,11 @@ export function FlowEditorProvider({
       setState((s) => ({
         ...s,
         nodes: s.nodes.map((n) =>
-          n.node_key === key ? { ...n, ...patch } : n,
+          n.node_key === key ? { ...n, ...patch } : n
         ),
       }));
     },
-    [setState],
+    [setState]
   );
 
   const updateNodeConfig = useCallback(
@@ -458,11 +465,11 @@ export function FlowEditorProvider({
         nodes: s.nodes.map((n) =>
           n.node_key === key
             ? { ...n, config: { ...n.config, ...configPatch } }
-            : n,
+            : n
         ),
       }));
     },
-    [setState],
+    [setState]
   );
 
   const updateNodePosition = useCallback(
@@ -472,11 +479,11 @@ export function FlowEditorProvider({
         nodes: s.nodes.map((n) =>
           n.node_key === key
             ? { ...n, position_x: Math.round(x), position_y: Math.round(y) }
-            : n,
+            : n
         ),
       }));
     },
-    [setState],
+    [setState]
   );
 
   const updateNodePositions = useCallback(
@@ -489,7 +496,7 @@ export function FlowEditorProvider({
         nodes: applyNodePositions(s.nodes, positions),
       }));
     },
-    [],
+    []
   );
 
   const addNode = useCallback(
@@ -497,6 +504,12 @@ export function FlowEditorProvider({
       const meta = NODE_META[type];
       const base = slugify(meta.label, type);
       let createdKey = base;
+      // A newly added node is deliberately incomplete until the author has
+      // named, configured and connected it. If a previous activation attempt
+      // exposed validation, return to the calm draft state while they add the
+      // next piece of the flow; pressing Activate again will always reveal
+      // the complete, current validation result.
+      setValidationVisible(false);
       setState((s) => {
         const node_key = uniqueNodeKey(base, s.nodes);
         createdKey = node_key;
@@ -512,12 +525,12 @@ export function FlowEditorProvider({
           // the entry automatically. Saves a click.
           entry_node_id:
             s.entry_node_id ??
-            (type === "start" ? node_key : s.entry_node_id ?? null),
+            (type === 'start' ? node_key : (s.entry_node_id ?? null)),
         };
       });
       return createdKey;
     },
-    [setState],
+    [setState]
   );
 
   const removeNode = useCallback(
@@ -530,12 +543,12 @@ export function FlowEditorProvider({
         ...s,
         nodes: unlinkNodeReferences(
           s.nodes.filter((n) => n.node_key !== key),
-          key,
+          key
         ),
         entry_node_id: s.entry_node_id === key ? null : s.entry_node_id,
       }));
     },
-    [setState],
+    [setState]
   );
 
   const value = useMemo<FlowEditorContextValue>(
@@ -547,6 +560,8 @@ export function FlowEditorProvider({
       saving,
       activating,
       issues,
+      visibleIssues,
+      validationVisible,
       canActivate,
       addNode,
       updateNode,
@@ -568,6 +583,8 @@ export function FlowEditorProvider({
       saving,
       activating,
       issues,
+      visibleIssues,
+      validationVisible,
       canActivate,
       addNode,
       updateNode,
@@ -580,8 +597,10 @@ export function FlowEditorProvider({
       deleteFlow,
       flashKey,
       requestFlash,
-    ],
+    ]
   );
 
-  return <FlowEditorCtx.Provider value={value}>{children}</FlowEditorCtx.Provider>;
+  return (
+    <FlowEditorCtx.Provider value={value}>{children}</FlowEditorCtx.Provider>
+  );
 }
