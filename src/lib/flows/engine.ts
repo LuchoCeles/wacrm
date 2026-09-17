@@ -302,7 +302,7 @@ async function logEvent(
  * runs? If yes, the inbound is a duplicate (Meta retry) and we
  * exit without re-advancing.
  *
- * Implementation note: scoped to runs belonging to this user/contact
+ * Implementation note: scoped to runs belonging to this account/contact
  * so the lookup is cheap (the index on flow_run_events(flow_run_id,
  * event_type) plus the small set of runs per contact).
  */
@@ -327,7 +327,7 @@ async function isDuplicateInbound(
     .from("flow_run_events")
     .select("id", { count: "exact", head: true })
     .in("flow_run_id", runIds)
-    .eq("event_type", "reply_received")
+    .in("event_type", ["started", "reply_received"])
     .filter("payload->>meta_message_id", "eq", metaMessageId);
   return (count ?? 0) > 0;
 }
@@ -474,16 +474,39 @@ async function executeHandoff(
     status: "pending",
     updated_at: new Date().toISOString(),
   };
-  if (cfg.assign_to) convUpdate.assigned_agent_id = cfg.assign_to;
+  let assignedTo: string | null = null;
+  if (cfg.assign_to) {
+    // `executeHandoff` uses the service client, so it must not accept a
+    // user id from the JSON config at face value. Without this check an
+    // authored flow could assign a conversation to an unrelated account's
+    // user. Only active operators in this run's own account are valid
+    // assignees.
+    const { data: assignee, error: assigneeErr } = await db
+      .from("profiles")
+      .select("user_id")
+      .eq("user_id", cfg.assign_to)
+      .eq("account_id", run.account_id)
+      .in("account_role", ["owner", "admin", "agent"])
+      .maybeSingle();
+    if (assigneeErr || !assignee) {
+      await logEvent(db, run.id, "error", node.node_key, {
+        reason: "handoff_assignee_not_in_account",
+      });
+    } else {
+      assignedTo = cfg.assign_to;
+      convUpdate.assigned_agent_id = assignedTo;
+    }
+  }
   if (run.conversation_id) {
     await db
       .from("conversations")
       .update(convUpdate)
-      .eq("id", run.conversation_id);
+      .eq("id", run.conversation_id)
+      .eq("account_id", run.account_id);
   }
   await logEvent(db, run.id, "handoff", node.node_key, {
     note: cfg.note ?? null,
-    assigned_to: cfg.assign_to ?? null,
+    assigned_to: assignedTo,
   });
   await endRun(db, run.id, "handed_off", "handoff_node");
 }
@@ -671,6 +694,23 @@ async function advanceFromNodeKey(
       // Send the prompt and suspend. Customer's next TEXT reply will
       // wake us up via handleReplyForActiveRun's collect_input branch.
       const cfg = node.config as unknown as CollectInputNodeConfig;
+      // Move the persisted pointer before the Meta call. Meta can make a
+      // message available to the customer as soon as it accepts it; if we
+      // waited until after the send, an instant reply would be evaluated
+      // against the preceding auto-advancing node.
+      const advanced = await advanceCurrentNodeKey(
+        db,
+        run.id,
+        run.current_node_key,
+        node.node_key,
+      );
+      if (!advanced) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "lost_race_during_advance",
+        });
+        return { outcome: "advanced" };
+      }
+      run.current_node_key = node.node_key;
       try {
         const { whatsapp_message_id } = await engineSendText({
           accountId: run.account_id,
@@ -701,17 +741,6 @@ async function advanceFromNodeKey(
         });
         await endRun(db, run.id, "failed", "collect_input_prompt_failed");
         return { outcome: "completed" };
-      }
-      const advanced = await advanceCurrentNodeKey(
-        db,
-        run.id,
-        run.current_node_key,
-        node.node_key,
-      );
-      if (!advanced) {
-        await logEvent(db, run.id, "error", node.node_key, {
-          reason: "lost_race_during_advance",
-        });
       }
       return { outcome: "advanced" };
     }
@@ -771,8 +800,8 @@ async function advanceFromNodeKey(
       continue;
     }
     if (node.node_type === "send_buttons") {
-      await sendButtonsAndSuspend(db, run, node);
-      // Persist the new current_node_key via optimistic UPDATE.
+      // Claim the suspended node before sending so a very fast customer
+      // response can only be matched against this prompt.
       const advanced = await advanceCurrentNodeKey(
         db,
         run.id,
@@ -783,11 +812,13 @@ async function advanceFromNodeKey(
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "lost_race_during_advance",
         });
+        return { outcome: "advanced" };
       }
+      run.current_node_key = node.node_key;
+      await sendButtonsAndSuspend(db, run, node);
       return { outcome: "advanced" };
     }
     if (node.node_type === "send_list") {
-      await sendListAndSuspend(db, run, node);
       const advanced = await advanceCurrentNodeKey(
         db,
         run.id,
@@ -798,7 +829,10 @@ async function advanceFromNodeKey(
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "lost_race_during_advance",
         });
+        return { outcome: "advanced" };
       }
+      run.current_node_key = node.node_key;
+      await sendListAndSuspend(db, run, node);
       return { outcome: "advanced" };
     }
     if (node.node_type === "handoff") {
@@ -855,6 +889,71 @@ async function advanceCurrentNodeKey(
   const { data, error } = await q.select("id");
   if (error) {
     console.error("[flows] advanceCurrentNodeKey error:", error.message);
+    return false;
+  }
+  return Array.isArray(data) && data.length > 0;
+}
+
+/**
+ * Claim a customer reply before running the branch's side effects.
+ *
+ * Moving the pointer first is the optimistic lock: two messages that
+ * arrive together can both read the old prompt, but only one can change
+ * it to the selected next node. The loser must not send another message,
+ * add/remove a tag, or hand the conversation off a second time.
+ */
+async function claimReplyAndAdvance(
+  db: AdminClient,
+  run: FlowRunRow,
+  nextNodeKey: string,
+  vars?: Record<string, unknown>,
+): Promise<boolean> {
+  let q = db
+    .from("flow_runs")
+    .update({
+      current_node_key: nextNodeKey,
+      last_advanced_at: new Date().toISOString(),
+      reprompt_count: 0,
+      ...(vars ? { vars } : {}),
+    })
+    .eq("id", run.id)
+    .eq("status", "active");
+  if (run.current_node_key === null) {
+    q = q.is("current_node_key", null);
+  } else {
+    q = q.eq("current_node_key", run.current_node_key);
+  }
+  const { data, error } = await q.select("id");
+  if (error) {
+    console.error("[flows] claimReplyAndAdvance error:", error.message);
+    return false;
+  }
+  return Array.isArray(data) && data.length > 0;
+}
+
+/** Claim a fallback response without changing the suspended node. */
+async function claimFallback(
+  db: AdminClient,
+  run: FlowRunRow,
+  repromptCount: number,
+): Promise<boolean> {
+  let q = db
+    .from("flow_runs")
+    .update({
+      reprompt_count: repromptCount,
+      last_advanced_at: new Date().toISOString(),
+    })
+    .eq("id", run.id)
+    .eq("status", "active")
+    .eq("reprompt_count", run.reprompt_count);
+  if (run.current_node_key === null) {
+    q = q.is("current_node_key", null);
+  } else {
+    q = q.eq("current_node_key", run.current_node_key);
+  }
+  const { data, error } = await q.select("id");
+  if (error) {
+    console.error("[flows] claimFallback error:", error.message);
     return false;
   }
   return Array.isArray(data) && data.length > 0;
@@ -962,6 +1061,9 @@ async function handleReplyForActiveRun(
   //
   // Everything else falls through to the fallback policy below.
   let matched: string | null = null;
+  let capturedVars: Record<string, unknown> | undefined;
+  let capturedKey: string | undefined;
+  let capturedLength: number | undefined;
   if (
     message.kind === "interactive_reply" &&
     (currentNode.node_type === "send_buttons" ||
@@ -975,44 +1077,34 @@ async function handleReplyForActiveRun(
     const cfg = currentNode.config as unknown as CollectInputNodeConfig;
     const captured = message.text.trim();
     if (captured.length > 0 && cfg.var_key) {
-      // Persist captured value + reset reprompt count atomically.
-      const newVars = { ...run.vars, [cfg.var_key]: captured };
-      const { error: capErr } = await db
-        .from("flow_runs")
-        .update({
-          vars: newVars,
-          reprompt_count: 0,
-        })
-        .eq("id", run.id);
-      if (!capErr) {
-        // Mirror the UPDATE in-memory so downstream interpolation in
-        // the advance loop sees the captured var without us having to
-        // re-SELECT the whole row.
-        run.vars = newVars;
-        run.reprompt_count = 0;
-        await logEvent(db, run.id, "node_entered", currentNode.node_key, {
-          captured_key: cfg.var_key,
-          captured_length: captured.length,
-        });
-        matched = cfg.next_node_key;
-      }
+      capturedVars = { ...run.vars, [cfg.var_key]: captured };
+      capturedKey = cfg.var_key;
+      capturedLength = captured.length;
+      matched = cfg.next_node_key;
     }
   }
 
   if (matched) {
-    // Reset reprompt count on a successful match. Skip the write when
-    // already 0 — the collect_input capture branch above already
-    // zeroed it, and interactive-reply matches against a fresh run
-    // (post-prior-reset) are also already 0. The previous re-read of
-    // the whole row was needed only because we weren't mirroring the
-    // capture UPDATE into the in-memory `run`; now that we do, the
-    // local copy is the source of truth.
-    if (run.reprompt_count !== 0) {
-      const { error } = await db
-        .from("flow_runs")
-        .update({ reprompt_count: 0 })
-        .eq("id", run.id);
-      if (!error) run.reprompt_count = 0;
+    const claimed = await claimReplyAndAdvance(db, run, matched, capturedVars);
+    if (!claimed) {
+      return {
+        consumed: true,
+        flow_run_id: run.id,
+        outcome: "duplicate_inbound_ignored",
+      };
+    }
+
+    // Mirror the successful compare-and-swap in memory so the advance
+    // loop interpolates a captured value and writes its next suspended
+    // pointer against the right expected key.
+    run.current_node_key = matched;
+    run.reprompt_count = 0;
+    if (capturedVars) run.vars = capturedVars;
+    if (capturedKey && capturedLength !== undefined) {
+      await logEvent(db, run.id, "node_entered", currentNode.node_key, {
+        captured_key: capturedKey,
+        captured_length: capturedLength,
+      });
     }
     const outcome = await advanceFromNodeKey(db, run, matched, nodes);
     return {
@@ -1027,10 +1119,15 @@ async function handleReplyForActiveRun(
     (await loadFlow(db, run.flow_id))?.fallback_policy,
   );
   const newReprompts = run.reprompt_count + 1;
-  await db
-    .from("flow_runs")
-    .update({ reprompt_count: newReprompts })
-    .eq("id", run.id);
+  const fallbackClaimed = await claimFallback(db, run, newReprompts);
+  if (!fallbackClaimed) {
+    return {
+      consumed: true,
+      flow_run_id: run.id,
+      outcome: "duplicate_inbound_ignored",
+    };
+  }
+  run.reprompt_count = newReprompts;
 
   const action = decideFallback({ policy, reprompt_count: newReprompts });
   await logEvent(db, run.id, "fallback_fired", run.current_node_key, {

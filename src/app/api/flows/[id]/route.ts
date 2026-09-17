@@ -2,15 +2,13 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
+import { parseUpdateFlowPayload } from '@/lib/flows/payload'
 
 /**
  * GET   /api/flows/[id]  — fetch one flow with its nodes.
  * PUT   /api/flows/[id]  — replace name/trigger/entry/fallback + the
- *                          full node graph (delete-then-insert under
- *                          the hood; not atomic, but the runner is
- *                          resilient to mid-edit reads — node_not_found
- *                          gracefully ends the run).
- * DELETE /api/flows/[id] — hard delete (RLS+CASCADE clean up nodes,
+ *                          full node graph atomically.
+ * DELETE /api/flows/[id] — hard delete (CASCADE cleans up nodes,
  *                          runs, events).
  *
  * All three require a signed-in caller who owns the flow. Flows is in
@@ -37,11 +35,15 @@ async function requireOwnership(
   }
   // RLS scopes this to the caller — a flow owned by another user
   // returns null (404 below).
-  const { data: flow } = await supabase
+  const { data: flow, error } = await supabase
     .from('flows')
     .select('id')
     .eq('id', flowId)
     .maybeSingle()
+  if (error) {
+    console.error('[flows] ownership check failed:', error.message)
+    return { ok: false, status: 500, body: { error: 'Could not load flow' } }
+  }
   if (!flow) {
     return { ok: false, status: 404, body: { error: 'Not found' } }
   }
@@ -57,7 +59,7 @@ export async function GET(
   if (!guard.ok) return NextResponse.json(guard.body, { status: guard.status })
   const { supabase } = guard
 
-  const [{ data: flow }, { data: nodes }] = await Promise.all([
+  const [{ data: flow, error: flowErr }, { data: nodes, error: nodesErr }] = await Promise.all([
     supabase.from('flows').select('*').eq('id', id).maybeSingle(),
     supabase
       .from('flow_nodes')
@@ -65,26 +67,16 @@ export async function GET(
       .eq('flow_id', id)
       .order('created_at', { ascending: true }),
   ])
+  if (flowErr || nodesErr) {
+    return NextResponse.json(
+      { error: flowErr?.message ?? nodesErr?.message ?? 'Could not load flow' },
+      { status: 500 },
+    )
+  }
   if (!flow) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
   return NextResponse.json({ flow, nodes: nodes ?? [] })
-}
-
-interface PutBody {
-  name?: string
-  description?: string | null
-  trigger_type?: 'keyword' | 'first_inbound_message' | 'manual'
-  trigger_config?: Record<string, unknown>
-  entry_node_id?: string | null
-  fallback_policy?: Record<string, unknown>
-  nodes?: Array<{
-    node_key: string
-    node_type: string
-    config: Record<string, unknown>
-    position_x?: number
-    position_y?: number
-  }>
 }
 
 export async function PUT(
@@ -93,9 +85,9 @@ export async function PUT(
 ) {
   const { id } = await context.params
 
-  // Writes require at least `agent` — the RLS flows_update policy demands
-  // it, but this route mutates via the service-role client which bypasses
-  // RLS, so the role must be enforced here (a viewer passes ownership).
+  // Browser-side flow writes are blocked. This route mutates through the
+  // service client, so it must enforce the minimum `agent` role itself
+  // (a viewer still passes the membership-only ownership check).
   try {
     await requireRole('agent')
   } catch (err) {
@@ -105,25 +97,16 @@ export async function PUT(
   const guard = await requireOwnership(id)
   if (!guard.ok) return NextResponse.json(guard.body, { status: guard.status })
 
-  const body = (await request.json().catch(() => null)) as PutBody | null
-  if (!body) {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-  if (body.name !== undefined && !body.name.trim()) {
-    return NextResponse.json(
-      { error: 'name cannot be empty' },
-      { status: 400 },
-    )
-  }
+  const json = await request.json().catch(() => null)
+  const parsed = parseUpdateFlowPayload(json)
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 })
+  const body = parsed.value
 
   const admin = supabaseAdmin()
 
-  // Update the flow row first — the body may not include `nodes` (a
-  // header-only save for editing the trigger config without touching
-  // the graph). Skip node replacement in that case.
-  const flowPatch: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-  }
+  // The body may not include `nodes` (a header-only save for editing
+  // the trigger config without touching the graph).
+  const flowPatch: Record<string, unknown> = {}
   if (body.name !== undefined) flowPatch.name = body.name.trim()
   if (body.description !== undefined)
     flowPatch.description = body.description
@@ -135,44 +118,29 @@ export async function PUT(
   if (body.fallback_policy !== undefined)
     flowPatch.fallback_policy = body.fallback_policy
 
-  const { error: updErr } = await admin
-    .from('flows')
-    .update(flowPatch)
-    .eq('id', id)
-  if (updErr) {
-    return NextResponse.json({ error: updErr.message }, { status: 500 })
-  }
-
   if (body.nodes !== undefined) {
-    // Delete-then-insert. Not transactional but the runner handles
-    // mid-edit reads safely (a node_not_found ends the run cleanly).
-    const { error: delErr } = await admin
-      .from('flow_nodes')
-      .delete()
-      .eq('flow_id', id)
-    if (delErr) {
-      return NextResponse.json({ error: delErr.message }, { status: 500 })
-    }
-    if (body.nodes.length > 0) {
-      const { error: insErr } = await admin.from('flow_nodes').insert(
-        body.nodes.map((n) => ({
-          flow_id: id,
-          node_key: n.node_key,
-          node_type: n.node_type,
-          config: n.config,
-          position_x: n.position_x ?? 0,
-          position_y: n.position_y ?? 0,
-        })),
-      )
-      if (insErr) {
-        return NextResponse.json({ error: insErr.message }, { status: 500 })
-      }
+    // The RPC wraps the flow update and graph replacement in one database
+    // transaction. A duplicate key / constraint failure therefore leaves
+    // the last good definition intact instead of deleting every node.
+    const { error } = await admin.rpc('replace_flow_definition', {
+      p_flow_id: id,
+      p_flow_patch: flowPatch,
+      p_nodes: body.nodes,
+    })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  } else {
+    const { error: updErr } = await admin
+      .from('flows')
+      .update({ ...flowPatch, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (updErr) {
+      return NextResponse.json({ error: updErr.message }, { status: 500 })
     }
   }
 
   // Re-fetch and return the new state — the editor uses the response
   // to reconcile its local form state.
-  const [{ data: flow }, { data: nodes }] = await Promise.all([
+  const [{ data: flow, error: flowErr }, { data: nodes, error: nodesErr }] = await Promise.all([
     admin.from('flows').select('*').eq('id', id).maybeSingle(),
     admin
       .from('flow_nodes')
@@ -180,6 +148,12 @@ export async function PUT(
       .eq('flow_id', id)
       .order('created_at', { ascending: true }),
   ])
+  if (flowErr || nodesErr) {
+    return NextResponse.json(
+      { error: flowErr?.message ?? nodesErr?.message ?? 'Could not load saved flow' },
+      { status: 500 },
+    )
+  }
   return NextResponse.json({ flow, nodes: nodes ?? [] })
 }
 
@@ -189,8 +163,8 @@ export async function DELETE(
 ) {
   const { id } = await context.params
 
-  // Writes require at least `agent` — see the PUT handler note. The
-  // service-role client below bypasses the agent-gated flows_delete RLS.
+  // Browser-side flow writes are blocked; see the PUT handler note for
+  // why this service-client mutation must require an `agent` role.
   try {
     await requireRole('agent')
   } catch (err) {

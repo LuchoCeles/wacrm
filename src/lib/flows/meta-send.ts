@@ -146,6 +146,7 @@ export async function engineSendText(
       updated_at: new Date().toISOString(),
     })
     .eq('id', args.conversationId)
+    .eq('account_id', args.accountId)
 
   return { whatsapp_message_id: waMessageId }
 }
@@ -263,6 +264,7 @@ export async function engineSendMedia(
       updated_at: new Date().toISOString(),
     })
     .eq('id', args.conversationId)
+    .eq('account_id', args.accountId)
 
   return { whatsapp_message_id: waMessageId }
 }
@@ -456,6 +458,7 @@ async function sendInteractiveViaMeta(
       updated_at: new Date().toISOString(),
     })
     .eq('id', input.conversationId)
+    .eq('account_id', input.accountId)
 
   return { whatsapp_message_id: waMessageId }
 }

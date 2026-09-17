@@ -3,6 +3,7 @@ import {
   applyEdgeConnection,
   deriveCanvasEdges,
   outgoingSlots,
+  relinkNodeReferences,
   unlinkNodeReferences,
 } from "./edges";
 import type { BuilderNode } from "@/components/flows/shared";
@@ -587,5 +588,41 @@ describe("unlinkNodeReferences", () => {
     expect(after).toHaveLength(2);
     expect(after[0]).toBe(nodes[0]);
     expect(after[1]).toBe(nodes[1]);
+  });
+});
+
+describe("relinkNodeReferences", () => {
+  it("moves every inbound edge when a node key is renamed", () => {
+    const before: BuilderNode[] = [
+      {
+        node_key: "start",
+        node_type: "start",
+        config: { next_node_key: "old" },
+      },
+      {
+        node_key: "menu",
+        node_type: "send_buttons",
+        config: {
+          buttons: [{ reply_id: "yes", title: "Yes", next_node_key: "old" }],
+        },
+      },
+    ];
+
+    const relinked = relinkNodeReferences(before, "old", "new");
+    expect((relinked[0].config as { next_node_key: string }).next_node_key).toBe(
+      "new",
+    );
+    expect(
+      (relinked[1].config as {
+        buttons: Array<{ next_node_key: string }>;
+      }).buttons[0].next_node_key,
+    ).toBe("new");
+  });
+
+  it("returns the original nodes for a no-op rename", () => {
+    const before: BuilderNode[] = [
+      { node_key: "end", node_type: "end", config: {} },
+    ];
+    expect(relinkNodeReferences(before, "same", "same")).toBe(before);
   });
 });

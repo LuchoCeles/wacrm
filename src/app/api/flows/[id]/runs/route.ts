@@ -9,9 +9,8 @@ import { createClient } from '@/lib/supabase/server'
  * page (`/flows/[id]/runs`) to give the owner end-to-end visibility
  * into what the bot did with each customer.
  *
- * RLS does the ownership check (flow_runs has a `user_id` policy);
- * we also gate on the per-account beta flag so the route 404s for
- * non-beta accounts matching the rest of /api/flows.
+ * RLS does the ownership check (flow_runs has a `user_id` policy).
+ * Flows is soft-GA, so this route has no per-account beta gate.
  *
  * Limited to the 50 most recent runs. Pagination can come later;
  * the dashboard surface here is for debugging, not heavy querying.

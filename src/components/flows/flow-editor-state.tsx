@@ -50,7 +50,7 @@ import {
   type ValidationIssue,
 } from "@/lib/flows/validate";
 import { useTranslations } from "next-intl";
-import { unlinkNodeReferences } from "@/lib/flows/edges";
+import { relinkNodeReferences, unlinkNodeReferences } from "@/lib/flows/edges";
 import type { FlowNodeRow, FlowRow } from "@/lib/flows/types";
 import { NODE_META, slugify, type BuilderNode, type NodeType } from "./shared";
 
@@ -104,7 +104,7 @@ export interface FlowEditorContextValue {
   removeNode: (key: string) => void;
 
   // Actions
-  save: () => Promise<void>;
+  save: () => Promise<boolean>;
   setStatus: (status: BuilderState["status"]) => Promise<void>;
   deleteFlow: () => Promise<boolean>;
 
@@ -350,8 +350,10 @@ export function FlowEditorProvider({
       }
       setDirty(false);
       toast.success(t("saved"));
+      return true;
     } catch (err) {
       toast.error('No se pudo guardar el flujo.');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -370,7 +372,8 @@ export function FlowEditorProvider({
         // latest state — the user shouldn't have to remember "save
         // then activate".
         if (next === "active") {
-          await save();
+          const saved = await save();
+          if (!saved) return;
         }
         const res = await fetch(`/api/flows/${initialFlow.id}/activate`, {
           method: "POST",
@@ -416,6 +419,28 @@ export function FlowEditorProvider({
   // ---- Node mutations ----
   const updateNode = useCallback(
     (key: string, patch: Partial<BuilderNode>) => {
+      const requestedKey = patch.node_key;
+      if (requestedKey && requestedKey !== key) {
+        setState((s) => {
+          // Keep keys unique even when an advanced user renames a node
+          // to an existing identifier. All inbound edges and the entry
+          // pointer move with the final key in the same state update.
+          const node_key = uniqueNodeKey(
+            requestedKey,
+            s.nodes.filter((n) => n.node_key !== key),
+          );
+          const relinked = relinkNodeReferences(s.nodes, key, node_key);
+          return {
+            ...s,
+            nodes: relinked.map((n) =>
+              n.node_key === key ? { ...n, ...patch, node_key } : n,
+            ),
+            entry_node_id:
+              s.entry_node_id === key ? node_key : s.entry_node_id,
+          };
+        });
+        return;
+      }
       setState((s) => ({
         ...s,
         nodes: s.nodes.map((n) =>

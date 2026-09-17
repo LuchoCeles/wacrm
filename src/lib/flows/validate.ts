@@ -112,23 +112,53 @@ export function validateFlowForActivation(
 
   // Per-node rules (Meta limits + dead-end + edge resolution).
   for (const n of nodes) {
-    issues.push(...validateNode(n, keys));
+    try {
+      issues.push(...validateNode(n, keys));
+    } catch {
+      // JSONB can be edited outside the builder on older deployments.
+      // Activation must reject malformed config rather than returning a
+      // 500 and leaving callers unable to diagnose the bad draft.
+      issues.push({
+        severity: "error",
+        scope: "node",
+        node_key: n.node_key,
+        field: "config",
+        message: "Node configuration has an invalid shape.",
+      });
+    }
   }
 
   // Reachability — every non-orphan node must be reachable from the
   // entry. Done after per-node validation so we don't double-report
   // when a node has bad config AND is unreachable.
   if (flow.entry_node_id && keys.has(flow.entry_node_id)) {
-    const reached = reachableFromEntry(flow.entry_node_id, nodes);
-    for (const n of nodes) {
-      if (!reached.has(n.node_key)) {
+    try {
+      const reached = reachableFromEntry(flow.entry_node_id, nodes);
+      for (const n of nodes) {
+        if (!reached.has(n.node_key)) {
+          issues.push({
+            severity: "warning",
+            scope: "node",
+            node_key: n.node_key,
+            message: `Node "${n.node_key}" is unreachable from the entry node.`,
+          });
+        }
+      }
+      const cycle = findReachableCycle(flow.entry_node_id, nodes);
+      if (cycle) {
         issues.push({
-          severity: "warning",
+          severity: "error",
           scope: "node",
-          node_key: n.node_key,
-          message: `Node "${n.node_key}" is unreachable from the entry node.`,
+          node_key: cycle[0],
+          message: `Flow contains a cycle (${cycle.join(" → ")}) that would never finish.`,
         });
       }
+    } catch {
+      issues.push({
+        severity: "error",
+        scope: "flow",
+        message: "The graph contains malformed node configuration.",
+      });
     }
   }
 
@@ -743,6 +773,42 @@ export function reachableFromEntry(
     }
   }
   return visited;
+}
+
+/** Return one reachable directed cycle, if the graph contains one. */
+export function findReachableCycle(
+  entryKey: string,
+  nodes: NodeInput[],
+): string[] | null {
+  const byKey = new Map<string, NodeInput>();
+  for (const n of nodes) byKey.set(n.node_key, n);
+
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  const path: string[] = [];
+
+  function visit(key: string): string[] | null {
+    if (visiting.has(key)) {
+      const start = path.indexOf(key);
+      return [...path.slice(start), key];
+    }
+    if (visited.has(key)) return null;
+    const node = byKey.get(key);
+    if (!node) return null;
+
+    visited.add(key);
+    visiting.add(key);
+    path.push(key);
+    for (const next of outgoingEdges(node)) {
+      const cycle = visit(next);
+      if (cycle) return cycle;
+    }
+    path.pop();
+    visiting.delete(key);
+    return null;
+  }
+
+  return visit(entryKey);
 }
 
 function outgoingEdges(node: NodeInput): string[] {

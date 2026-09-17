@@ -336,6 +336,26 @@ export function unlinkNodeReferences(
   });
 }
 
+/**
+ * Move every edge that targets `fromKey` to `toKey`.
+ *
+ * Node keys are editable advanced identifiers. Renaming one must carry
+ * its inbound edges (and a self-loop, if a legacy draft contains one),
+ * otherwise an innocent label edit turns a valid graph into dangling
+ * references that cannot be activated.
+ */
+export function relinkNodeReferences(
+  nodes: BuilderNode[],
+  fromKey: string,
+  toKey: string,
+): BuilderNode[] {
+  if (fromKey === toKey) return nodes;
+  return nodes.map((n) => {
+    const patched = patchedConfigWithReplacedKey(n, fromKey, toKey);
+    return patched ? { ...n, config: patched } : n;
+  });
+}
+
 function patchedConfigWithoutKey(
   node: BuilderNode,
   deletedKey: string,
@@ -396,6 +416,76 @@ function patchedConfigWithoutKey(
             if (r.next_node_key === deletedKey) {
               dirty = true;
               return { ...r, next_node_key: "" };
+            }
+            return r;
+          }),
+        };
+      });
+      return dirty ? { ...cfg, sections: next } : null;
+    }
+
+    case "handoff":
+    case "end":
+      return null;
+  }
+}
+
+function patchedConfigWithReplacedKey(
+  node: BuilderNode,
+  fromKey: string,
+  toKey: string,
+): Record<string, unknown> | null {
+  const cfg = node.config;
+  switch (node.node_type) {
+    case "start":
+    case "send_message":
+    case "send_media":
+    case "collect_input":
+    case "set_tag": {
+      const next = (cfg as { next_node_key?: string }).next_node_key;
+      return next === fromKey ? { ...cfg, next_node_key: toKey } : null;
+    }
+
+    case "condition": {
+      const c = cfg as { true_next?: string; false_next?: string };
+      const trueMatch = c.true_next === fromKey;
+      const falseMatch = c.false_next === fromKey;
+      if (!trueMatch && !falseMatch) return null;
+      return {
+        ...cfg,
+        ...(trueMatch ? { true_next: toKey } : {}),
+        ...(falseMatch ? { false_next: toKey } : {}),
+      };
+    }
+
+    case "send_buttons": {
+      const buttons = Array.isArray((cfg as { buttons?: unknown }).buttons)
+        ? (cfg as { buttons: Array<Record<string, unknown>> }).buttons
+        : [];
+      if (!buttons.some((b) => b.next_node_key === fromKey)) return null;
+      return {
+        ...cfg,
+        buttons: buttons.map((b) =>
+          b.next_node_key === fromKey ? { ...b, next_node_key: toKey } : b,
+        ),
+      };
+    }
+
+    case "send_list": {
+      const sections = Array.isArray((cfg as { sections?: unknown }).sections)
+        ? (cfg as { sections: Array<Record<string, unknown>> }).sections
+        : [];
+      let dirty = false;
+      const next = sections.map((s) => {
+        const rows = Array.isArray(s.rows)
+          ? (s.rows as Array<Record<string, unknown>>)
+          : [];
+        return {
+          ...s,
+          rows: rows.map((r) => {
+            if (r.next_node_key === fromKey) {
+              dirty = true;
+              return { ...r, next_node_key: toKey };
             }
             return r;
           }),

@@ -24,10 +24,9 @@ export async function POST(
 ) {
   const { id } = await context.params
 
-  // Changing status (activate / draft / archive) is a write — the RLS
-  // flows_update policy requires `agent`, but the service-role client
-  // below bypasses RLS, so enforce the role here (a viewer passes the
-  // membership-only ownership check).
+  // Browser-side flow writes are blocked. The service-role client below
+  // therefore needs this explicit `agent` role check (a viewer passes
+  // the membership-only ownership check).
   try {
     await requireRole('agent')
   } catch (err) {
@@ -54,11 +53,14 @@ export async function POST(
   }
 
   // Ownership via RLS — caller's client.
-  const { data: existing } = await supabase
+  const { data: existing, error: existingErr } = await supabase
     .from('flows')
     .select('id')
     .eq('id', id)
     .maybeSingle()
+  if (existingErr) {
+    return NextResponse.json({ error: existingErr.message }, { status: 500 })
+  }
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
@@ -67,10 +69,10 @@ export async function POST(
 
   if (status === 'active') {
     // Re-load with the full payload the validator needs.
-    const [{ data: flow }, { data: nodes }] = await Promise.all([
+    const [{ data: flow, error: flowErr }, { data: nodes, error: nodesErr }] = await Promise.all([
       admin
         .from('flows')
-        .select('name, trigger_type, trigger_config, entry_node_id')
+        .select('name, trigger_type, trigger_config, entry_node_id, updated_at')
         .eq('id', id)
         .maybeSingle(),
       admin
@@ -78,6 +80,12 @@ export async function POST(
         .select('node_key, node_type, config')
         .eq('flow_id', id),
     ])
+    if (flowErr || nodesErr) {
+      return NextResponse.json(
+        { error: flowErr?.message ?? nodesErr?.message ?? 'Could not validate flow' },
+        { status: 500 },
+      )
+    }
     if (!flow) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
@@ -104,6 +112,27 @@ export async function POST(
         { status: 422 },
       )
     }
+
+    // A save from another tab can replace the graph after validation but
+    // before this status write. API saves always advance updated_at, so
+    // this compare-and-swap prevents activating an unvalidated graph.
+    const { data: updated, error } = await admin
+      .from('flows')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('updated_at', (flow as { updated_at: string }).updated_at)
+      .select()
+      .maybeSingle()
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    if (!updated) {
+      return NextResponse.json(
+        { error: 'Flow changed while it was being validated. Please try again.' },
+        { status: 409 },
+      )
+    }
+    return NextResponse.json({ flow: updated })
   }
 
   const { data: updated, error } = await admin

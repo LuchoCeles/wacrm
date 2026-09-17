@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { validateFlowForActivation, reachableFromEntry } from "./validate";
+import {
+  findReachableCycle,
+  validateFlowForActivation,
+  reachableFromEntry,
+} from "./validate";
 
 const validFlow = {
   name: "Welcome",
@@ -545,5 +549,36 @@ describe("reachableFromEntry", () => {
     ];
     const set = reachableFromEntry("a", nodes);
     expect(set).toEqual(new Set(["a", "b"]));
+  });
+});
+
+describe("findReachableCycle", () => {
+  it("finds a cycle that would make the runner exhaust its safety cap", () => {
+    const nodes = [
+      { node_key: "a", node_type: "start", config: { next_node_key: "b" } },
+      { node_key: "b", node_type: "send_message", config: { text: "x", next_node_key: "a" } },
+    ];
+    expect(findReachableCycle("a", nodes)).toEqual(["a", "b", "a"]);
+    expect(
+      validateFlowForActivation({ ...validFlow, entry_node_id: "a" }, nodes).some(
+        (issue) => issue.severity === "error" && issue.message.includes("cycle"),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects malformed JSONB config without throwing", () => {
+    const malformed = [
+      { node_key: "s", node_type: "start", config: null },
+    ] as unknown as typeof validNodes;
+    expect(() => validateFlowForActivation(
+      { ...validFlow, entry_node_id: "s" },
+      malformed,
+    )).not.toThrow();
+    expect(
+      validateFlowForActivation(
+        { ...validFlow, entry_node_id: "s" },
+        malformed,
+      ).some((issue) => issue.severity === "error" && issue.field === "config"),
+    ).toBe(true);
   });
 });

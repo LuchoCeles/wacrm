@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
+import { parseCreateFlowPayload } from '@/lib/flows/payload'
 import { getFlowTemplate } from '@/lib/flows/templates'
 
 /**
@@ -46,55 +47,21 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  // Creating a flow is a write — the RLS flows_insert policy requires
-  // `agent`, but this route inserts via the service-role client which
-  // bypasses RLS, so the role must be enforced here.
+  // Browser-side flow writes are deliberately blocked at the database
+  // boundary. This route uses the service client, so it enforces the
+  // same minimum `agent` role before creating a definition.
+  let account
   try {
-    await requireRole('agent')
+    account = await requireRole('agent')
   } catch (err) {
     return toErrorResponse(err)
   }
 
-  const guard = await requireUser()
-  if (!guard.ok) {
-    return NextResponse.json(guard.body, { status: guard.status })
-  }
-  const { userId, supabase } = guard
-
-  // Resolve the caller's account_id — `flows.account_id` is NOT NULL
-  // post-017, so an INSERT without it trips the not-null constraint
-  // even though the admin client below bypasses RLS.
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('account_id')
-    .eq('user_id', userId)
-    .single()
-  const accountId = profile?.account_id as string | undefined
-  if (!accountId) {
-    return NextResponse.json(
-      { error: 'Your profile is not linked to an account.' },
-      { status: 403 },
-    )
-  }
-
-  const body = (await request.json().catch(() => null)) as
-    | {
-        name?: string
-        description?: string | null
-        trigger_type?: 'keyword' | 'first_inbound_message' | 'manual'
-        trigger_config?: Record<string, unknown>
-        /**
-         * If set, clone the matching template's name + trigger +
-         * entry_node_id + nodes[] into a fresh draft for this user.
-         * `name` from the body overrides the template default if
-         * provided.
-         */
-        template_slug?: string
-      }
-    | null
-  if (!body) {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+  const json = await request.json().catch(() => null)
+  const parsed = parseCreateFlowPayload(json)
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 })
+  const body = parsed.value
+  const { userId, accountId } = account
 
   const admin = supabaseAdmin()
 
