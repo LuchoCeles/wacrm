@@ -84,6 +84,7 @@ export function NodeConfigForm({
             label={t("textToCustomer")}
             value={(cfg as { text?: string }).text ?? ""}
             onChange={(v) => onUpdateConfig({ text: v })}
+            rows={3}
           />
           <NextNodeRow
             value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
@@ -274,6 +275,7 @@ function SendButtonsForm({
         label={t("footerText")}
         value={cfg.footer_text ?? ""}
         onChange={(v) => onUpdateConfig({ footer_text: v })}
+        rows={2}
       />
       <div>
         <div className="mb-2 flex items-center justify-between">
@@ -285,47 +287,57 @@ function SendButtonsForm({
           {buttons.map((b, i) => (
             <div
               key={i}
-              className={cn(
-                "grid grid-cols-1 gap-2 rounded-md border border-border bg-muted/40 p-3",
-                showAdvanced
-                  ? "md:grid-cols-[1fr_2fr_2fr_auto]"
-                  : "md:grid-cols-[2fr_2fr_auto]",
-              )}
+              className="rounded-lg border border-border bg-muted/40 p-3"
             >
-              {showAdvanced && (
-                <Input
-                  value={b.reply_id}
-                  onChange={(e) =>
-                    updateButton(i, {
-                      reply_id: slugify(e.target.value, `btn_${i + 1}`),
-                    })
-                  }
-                  placeholder="reply_id"
-                  className="bg-muted font-mono text-xs"
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <label className="mb-1 block text-xs text-muted-foreground">
+                    {t("optionTitleLabel", { count: i + 1 })}
+                  </label>
+                  <Input
+                    value={b.title}
+                    onChange={(e) => updateButton(i, { title: e.target.value })}
+                    placeholder={t("optionTitlePlaceholder")}
+                    className="bg-muted"
+                    maxLength={20}
+                  />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => removeButton(i)}
+                  className="mt-5 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                  aria-label={t("removeOption", { count: i + 1 })}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="mt-2">
+                <NextNodeRow
+                  value={b.next_node_key || ""}
+                  allNodes={allNodes}
+                  currentKey={currentKey}
+                  onChange={(v) => updateButton(i, { next_node_key: v })}
+                  label={t("optionDestinationLabel")}
                 />
+              </div>
+              {showAdvanced && (
+                <div className="mt-2">
+                  <label className="mb-1 block text-xs text-muted-foreground">
+                    {t("replyIdLabel")}
+                  </label>
+                  <Input
+                    value={b.reply_id}
+                    onChange={(e) =>
+                      updateButton(i, {
+                        reply_id: slugify(e.target.value, `btn_${i + 1}`),
+                      })
+                    }
+                    placeholder="reply_id"
+                    className="bg-muted font-mono text-xs"
+                  />
+                </div>
               )}
-              <Input
-                value={b.title}
-                onChange={(e) => updateButton(i, { title: e.target.value })}
-                placeholder={t("optionTitlePlaceholder")}
-                className="bg-muted"
-                maxLength={20}
-              />
-              <NodeKeySelect
-                value={b.next_node_key || null}
-                nodes={allNodes}
-                excludeKey={currentKey}
-                onChange={(v) => updateButton(i, { next_node_key: v ?? "" })}
-                placeholder={t("nextNodePlaceholder")}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => removeButton(i)}
-                className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
             </div>
           ))}
         </div>
@@ -461,7 +473,7 @@ function SendListForm({
         onChange={(v) => onUpdateConfig({ text: v })}
         rows={3}
       />
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 @lg:grid-cols-2">
         <TextRow
           label={t("buttonLabel")}
           value={cfg.button_label ?? ""}
@@ -471,6 +483,7 @@ function SendListForm({
           label={t("footerText")}
           value={cfg.footer_text ?? ""}
           onChange={(v) => onUpdateConfig({ footer_text: v })}
+          rows={2}
         />
       </div>
 
@@ -483,15 +496,20 @@ function SendListForm({
             key={sIdx}
             className="mb-3 rounded-md border border-border bg-muted/40 p-3"
           >
-            <div className="mb-2 flex items-center gap-2">
-              <Input
-                value={section.title ?? ""}
-                onChange={(e) =>
-                  updateSection(sIdx, { title: e.target.value })
-                }
-                placeholder={t("sectionTitlePlaceholder", { count: sIdx + 1 })}
-                className="bg-muted text-xs"
-              />
+            <div className="mb-3 flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <label className="mb-1 block text-xs text-muted-foreground">
+                  {t("sectionLabel", { count: sIdx + 1 })}
+                </label>
+                <Input
+                  value={section.title ?? ""}
+                  onChange={(e) =>
+                    updateSection(sIdx, { title: e.target.value })
+                  }
+                  placeholder={t("sectionTitlePlaceholder", { count: sIdx + 1 })}
+                  className="bg-muted text-xs"
+                />
+              </div>
               {sections.length > 1 && (
                 <Button
                   variant="ghost"
@@ -507,54 +525,64 @@ function SendListForm({
             {section.rows.map((row, rIdx) => (
               <div
                 key={rIdx}
-                className={cn(
-                  "mb-2 grid grid-cols-1 gap-2",
-                  showAdvanced
-                    ? "md:grid-cols-[1fr_2fr_2fr_auto]"
-                    : "md:grid-cols-[2fr_2fr_auto]",
-                )}
+                className="mb-2 rounded-lg border border-border/70 bg-card/60 p-2.5"
               >
-                {showAdvanced && (
-                  <Input
-                    value={row.reply_id}
-                    onChange={(e) =>
-                      updateRow(sIdx, rIdx, {
-                        reply_id: slugify(
-                          e.target.value,
-                          `row_${rIdx + 1}`,
-                        ),
-                      })
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <label className="mb-1 block text-xs text-muted-foreground">
+                      {t("optionTitleLabel", { count: rIdx + 1 })}
+                    </label>
+                    <Input
+                      value={row.title}
+                      onChange={(e) =>
+                        updateRow(sIdx, rIdx, { title: e.target.value })
+                      }
+                      placeholder={t("rowTitlePlaceholder")}
+                      className="bg-muted"
+                      maxLength={24}
+                    />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => removeRow(sIdx, rIdx)}
+                    className="mt-5 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                    aria-label={t("removeOption", { count: rIdx + 1 })}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="mt-2">
+                  <NextNodeRow
+                    value={row.next_node_key || ""}
+                    allNodes={allNodes}
+                    currentKey={currentKey}
+                    onChange={(v) =>
+                      updateRow(sIdx, rIdx, { next_node_key: v })
                     }
-                    placeholder="reply_id"
-                    className="bg-muted font-mono text-xs"
+                    label={t("optionDestinationLabel")}
                   />
+                </div>
+                {showAdvanced && (
+                  <div className="mt-2">
+                    <label className="mb-1 block text-xs text-muted-foreground">
+                      {t("replyIdLabel")}
+                    </label>
+                    <Input
+                      value={row.reply_id}
+                      onChange={(e) =>
+                        updateRow(sIdx, rIdx, {
+                          reply_id: slugify(
+                            e.target.value,
+                            `row_${rIdx + 1}`,
+                          ),
+                        })
+                      }
+                      placeholder="reply_id"
+                      className="bg-muted font-mono text-xs"
+                    />
+                  </div>
                 )}
-                <Input
-                  value={row.title}
-                  onChange={(e) =>
-                    updateRow(sIdx, rIdx, { title: e.target.value })
-                  }
-                  placeholder={t("rowTitlePlaceholder")}
-                  className="bg-muted"
-                  maxLength={24}
-                />
-                <NodeKeySelect
-                  value={row.next_node_key || null}
-                  nodes={allNodes}
-                  excludeKey={currentKey}
-                  onChange={(v) =>
-                    updateRow(sIdx, rIdx, { next_node_key: v ?? "" })
-                  }
-                  placeholder={t("nextNodePlaceholder")}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeRow(sIdx, rIdx)}
-                  className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
               </div>
             ))}
             {totalRows < 10 && (
@@ -573,7 +601,7 @@ function SendListForm({
         {/* WhatsApp's interactive-list spec caps sections at 10. Group rows
             by category (Billing / Support / Sales etc.) to give customers a
             scannable menu. */}
-        {sections.length < 10 && (
+        {sections.length < 10 && totalRows < 10 && (
           <Button variant="outline" size="sm" onClick={addSection}>
             <Plus className="h-3.5 w-3.5" />
             {t("addSection")}
@@ -624,7 +652,7 @@ function ConditionForm({
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 @lg:grid-cols-3">
         <div>
           <label className="mb-1 block text-xs text-muted-foreground">{t("ifLabel")}</label>
           <Select
@@ -643,7 +671,7 @@ function ConditionForm({
             </SelectContent>
           </Select>
         </div>
-        <div className="md:col-span-2">
+        <div className="@lg:col-span-2">
           <label className="mb-1 block text-xs text-muted-foreground">
             {subject === "var"
               ? t("varName")
@@ -698,7 +726,7 @@ function ConditionForm({
       <div
         className={cn(
           "grid grid-cols-1 gap-3",
-          showValue ? "md:grid-cols-2" : "",
+          showValue ? "@lg:grid-cols-2" : "",
         )}
       >
         <div>
@@ -732,7 +760,7 @@ function ConditionForm({
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 @lg:grid-cols-2">
         <NextNodeRow
           value={cfg.true_next ?? ""}
           allNodes={allNodes}
@@ -779,7 +807,7 @@ function SetTagForm({
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 @lg:grid-cols-2">
         <div>
           <label className="mb-1 block text-xs text-muted-foreground">{t("actionLabel")}</label>
           <Select

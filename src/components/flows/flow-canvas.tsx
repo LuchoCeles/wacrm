@@ -80,6 +80,7 @@ import { autoLayout, shouldAutoLayout } from '@/lib/flows/layout';
 import {
   NODE_META,
   NodeIconChip,
+  displayNodeName,
   groupNodeTypesByCategory,
   nodeColors,
   summarizeNode,
@@ -97,6 +98,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useFlowEditor } from './flow-editor-state';
 import { NodeConfigForm } from './forms/node-config-form';
+import { NodeSelectLabel } from './forms/fields';
 
 // React-Flow node `data` payload — the bits our custom renderer needs.
 interface NodeData extends Record<string, unknown> {
@@ -203,8 +205,8 @@ function FlowNodeCard({ data, selected }: NodeProps) {
           </span>
         )}
       </div>
-      <div className="text-muted-foreground mt-2 truncate font-mono text-[11px]">
-        {node.node_key}
+      <div className="text-muted-foreground mt-2 truncate text-[11px] font-medium">
+        {displayNodeName(node.node_key)}
       </div>
       {summary && (
         <div className="text-muted-foreground mt-1 line-clamp-2 text-xs leading-relaxed">
@@ -647,12 +649,13 @@ function NodeEditSheet({
               {t(`nodes.${node.node_type}.blurb`)}
             </SheetDescription>
           </div>
-          <code className="bg-muted text-muted-foreground shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px]">
-            {node.node_key}
-          </code>
+          <NodeSelectLabel
+            node={node}
+            className="bg-muted text-muted-foreground shrink-0 max-w-40 rounded px-1.5 py-0.5 text-[10px]"
+          />
         </SheetHeader>
 
-        <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">
+        <div className="@container flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">
           <NodeConfigForm
             node={node}
             allNodes={allNodes}

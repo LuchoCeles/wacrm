@@ -22,6 +22,7 @@
  * /flows/[id]/runs) — those don't belong in the hook.
  */
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -36,6 +37,14 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   useFlowEditor,
@@ -44,6 +53,8 @@ import {
 
 export function EditorHeader() {
   const router = useRouter();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const {
     flow,
     state,
@@ -56,6 +67,16 @@ export function EditorHeader() {
     setStatus,
     deleteFlow,
   } = useFlowEditor();
+
+  async function handleConfirmDelete() {
+    setDeleting(true);
+    try {
+      const deleted = await deleteFlow();
+      if (deleted) setDeleteOpen(false);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-1.5 px-6 pt-5">
@@ -109,7 +130,7 @@ export function EditorHeader() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => void deleteFlow()}
+            onClick={() => setDeleteOpen(true)}
             className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -170,6 +191,43 @@ export function EditorHeader() {
         aria-label="Descripción del flujo"
         className="w-full max-w-[78ch] rounded-md border border-transparent bg-transparent px-2 py-1 text-[13px] text-muted-foreground outline-none transition-colors placeholder:text-muted-foreground/60 hover:bg-muted/50 focus:border-primary focus:bg-transparent focus:text-foreground"
       />
+
+      <Dialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteOpen(false);
+        }}
+      >
+        <DialogContent
+          showCloseButton={!deleting}
+          className="bg-popover text-popover-foreground"
+        >
+          <DialogHeader>
+            <DialogTitle>Eliminar flujo</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              ¿Eliminar &quot;{state.name}&quot;? Todas las ejecuciones activas
+              terminarán de inmediato. Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteOpen(false)}
+              disabled={deleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void handleConfirmDelete()}
+              disabled={deleting}
+            >
+              {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

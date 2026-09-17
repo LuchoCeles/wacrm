@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   NODE_CATEGORIES,
   NODE_META,
+  displayNodeName,
   groupNodeTypesByCategory,
   type NodeType,
 } from './shared';
@@ -42,5 +43,23 @@ describe('groupNodeTypesByCategory', () => {
   it('partitions the full type list without losing or duplicating a type', () => {
     const grouped = groupNodeTypesByCategory(ALL_TYPES).flatMap((g) => g.types);
     expect([...grouped].sort()).toEqual([...ALL_TYPES].sort());
+  });
+});
+
+describe('displayNodeName', () => {
+  it('uses action-oriented names for starter-template nodes', () => {
+    expect(displayNodeName('transferencia_cliente_nuevo')).toBe(
+      'Transferir cliente nuevo'
+    );
+    expect(displayNodeName('new_handoff')).toBe('Transferir cliente nuevo');
+    expect(displayNodeName('respuesta_pagos')).toBe(
+      'Informar pagos y comprobantes'
+    );
+  });
+
+  it('formats custom technical keys without exposing underscores', () => {
+    expect(displayNodeName('seguimiento_post_venta')).toBe(
+      'Seguimiento Post Venta'
+    );
   });
 });

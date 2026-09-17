@@ -106,7 +106,7 @@ export interface FlowEditorContextValue {
   // Actions
   save: () => Promise<void>;
   setStatus: (status: BuilderState["status"]) => Promise<void>;
-  deleteFlow: () => Promise<void>;
+  deleteFlow: () => Promise<boolean>;
 
   /**
    * Transient "look here" signal. Set when the validation panel's
@@ -400,20 +400,18 @@ export function FlowEditorProvider({
 
   // ---- Delete ----
   const deleteFlow = useCallback(async () => {
-    const yes = window.confirm(
-      `¿Eliminar "${state.name}"? Todas las ejecuciones activas terminarán de inmediato. Esta acción no se puede deshacer.`,
-    );
-    if (!yes) return;
     try {
       const res = await fetch(`/api/flows/${initialFlow.id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
       router.push("/flows");
+      return true;
     } catch (err) {
       toast.error('No se pudo eliminar el flujo.');
+      return false;
     }
-  }, [initialFlow.id, router, state.name]);
+  }, [initialFlow.id, router]);
 
   // ---- Node mutations ----
   const updateNode = useCallback(

@@ -27,9 +27,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { NODE_META, type BuilderNode } from "../shared";
+import { displayNodeName, NODE_META, type BuilderNode } from "../shared";
 
 export function TextRow({
   label,
@@ -43,14 +45,15 @@ export function TextRow({
   rows?: number;
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <label className="mb-1 block text-xs text-muted-foreground">{label}</label>
       {rows > 1 ? (
         <Textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
           rows={rows}
-          className="bg-muted"
+          wrap="soft"
+          className="bg-muted max-h-[min(50vh,20rem)] min-h-[5rem] max-w-full min-w-0 resize-y overflow-x-hidden leading-6 break-words"
         />
       ) : (
         <Input
@@ -76,17 +79,55 @@ export function NextNodeRow({
   onChange: (v: string) => void;
   label: string;
 }) {
+  const t = useTranslations("Flows.builder.form");
   return (
     <div>
       <label className="mb-1 block text-xs text-muted-foreground">{label}</label>
-      <NodeKeySelect
-        value={value || null}
-        nodes={allNodes}
-        excludeKey={currentKey}
-        onChange={(v) => onChange(v ?? "")}
-        placeholder={useTranslations("Flows.builder.form")("pickNextNode")}
-      />
+      <div className="flex min-w-0 items-center gap-1.5">
+        <NodeKeySelect
+          value={value || null}
+          nodes={allNodes}
+          excludeKey={currentKey}
+          onChange={(v) => onChange(v ?? "")}
+          placeholder={t("pickNextNode")}
+          className="flex-1"
+        />
+        {value && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onChange("")}
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+            aria-label={t("clearNextNode")}
+            title={t("clearNextNode")}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
     </div>
+  );
+}
+
+/** A node's recognizable icon and friendly name, used inside selects and inspector headers. */
+export function NodeSelectLabel({
+  node,
+  className,
+}: {
+  node: BuilderNode;
+  className?: string;
+}) {
+  const Icon = NODE_META[node.node_type].icon;
+  const name = displayNodeName(node.node_key);
+  return (
+    <span
+      className={cn("inline-flex min-w-0 items-center gap-1.5", className)}
+      title={name}
+    >
+      <Icon className={cn("h-3 w-3 shrink-0", NODE_META[node.node_type].color)} />
+      <span className="truncate">{name}</span>
+    </span>
   );
 }
 
@@ -105,31 +146,33 @@ export function NodeKeySelect({
   placeholder?: string;
   className?: string;
 }) {
-  const t = useTranslations("Flows.builder.form");
   const options = nodes.filter((n) => n.node_key !== excludeKey);
+  const emptyLabel = placeholder ?? "—";
   return (
-    <Select
-      value={value ?? "__none__"}
-      onValueChange={(v) => onChange(v === "__none__" ? null : v)}
-    >
-      <SelectTrigger className={cn("bg-muted", className)}>
-        <SelectValue placeholder={placeholder ?? "—"} />
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className={cn("w-full min-w-0 bg-muted", className)}>
+        <SelectValue placeholder={emptyLabel}>
+          {(selectedValue) => {
+            const selectedNode = options.find(
+              (node) => node.node_key === selectedValue,
+            );
+            return selectedNode ? (
+              <NodeSelectLabel node={selectedNode} />
+            ) : (
+              emptyLabel
+            );
+          }}
+        </SelectValue>
       </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="__none__">{t("none")}</SelectItem>
-        {options.map((n) => {
-          const Icon = NODE_META[n.node_type].icon;
-          return (
-            <SelectItem key={n.node_key} value={n.node_key}>
-              <span className="inline-flex items-center gap-1.5">
-                <Icon
-                  className={cn("h-3 w-3", NODE_META[n.node_type].color)}
-                />
-                {n.node_key}
-              </span>
-            </SelectItem>
-          );
-        })}
+      <SelectContent
+        alignItemWithTrigger={false}
+        className="w-fit max-w-(--available-width) min-w-(--anchor-width)"
+      >
+        {options.map((node) => (
+          <SelectItem key={node.node_key} value={node.node_key}>
+            <NodeSelectLabel node={node} />
+          </SelectItem>
+        ))}
       </SelectContent>
     </Select>
   );

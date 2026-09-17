@@ -1,13 +1,19 @@
-"use client";
+'use client';
 
-import { Suspense, useState } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { MessageSquare, CheckCircle, UsersRound, ArrowRight } from "lucide-react";
+import { Suspense, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { getSiteUrl } from '@/lib/site-url';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  MessageSquare,
+  CheckCircle,
+  UsersRound,
+  ArrowRight,
+} from 'lucide-react';
 
 export default function SignupPage() {
   return (
@@ -19,12 +25,12 @@ export default function SignupPage() {
 
 function SignupPageInner() {
   const searchParams = useSearchParams();
-  const inviteToken = searchParams.get("invite");
+  const inviteToken = searchParams.get('invite');
 
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -35,20 +41,21 @@ function SignupPageInner() {
     setError(null);
 
     if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden.");
+      setError('Las contraseñas no coinciden.');
       return;
     }
 
     if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres.");
+      setError('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
 
     setLoading(true);
 
+    const siteUrl = getSiteUrl();
     const emailRedirectTo = inviteToken
-      ? `${window.location.origin}/join/${encodeURIComponent(inviteToken)}`
-      : undefined;
+      ? `${siteUrl}/join/${encodeURIComponent(inviteToken)}`
+      : `${siteUrl}/auth/callback`;
 
     const { error } = await supabase.auth.signUp({
       email,
@@ -57,7 +64,7 @@ function SignupPageInner() {
         data: {
           full_name: fullName,
         },
-        ...(emailRedirectTo ? { emailRedirectTo } : {}),
+        emailRedirectTo,
       },
     });
 
@@ -74,26 +81,28 @@ function SignupPageInner() {
   // Pantalla de éxito estilizada
   if (success) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-sm text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <CheckCircle className="h-8 w-8 text-primary" />
+      <div className="bg-background flex min-h-screen items-center justify-center px-4">
+        <div className="border-border bg-card w-full max-w-md rounded-2xl border p-8 text-center shadow-sm">
+          <div className="bg-primary/10 mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full">
+            <CheckCircle className="text-primary h-8 w-8" />
           </div>
-          <h2 className="mb-2 text-2xl font-bold text-foreground">
+          <h2 className="text-foreground mb-2 text-2xl font-bold">
             Revisa tu correo
           </h2>
-          <p className="mb-8 text-muted-foreground">
-            Hemos enviado un enlace de confirmación a <span className="font-medium text-foreground">{email}</span>. 
-            Por favor, revisa tu bandeja de entrada y haz clic en el enlace para verificar tu cuenta.
+          <p className="text-muted-foreground mb-8">
+            Hemos enviado un enlace de confirmación a{' '}
+            <span className="text-foreground font-medium">{email}</span>. Por
+            favor, revisa tu bandeja de entrada y haz clic en el enlace para
+            verificar tu cuenta.
           </p>
           <Link
             href={
               inviteToken
                 ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                : "/login"
+                : '/login'
             }
           >
-            <Button className="w-full h-11" variant="outline">
+            <Button className="h-11 w-full" variant="outline">
               Volver a iniciar sesión
             </Button>
           </Link>
@@ -103,26 +112,27 @@ function SignupPageInner() {
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-background flex-row-reverse">
+    <div className="bg-background flex min-h-screen w-full flex-row-reverse">
       {/* Panel Izquierdo (Acá a la derecha) - Visual/Branding (Oculto en móviles) */}
-      <div className="relative hidden w-1/2 flex-col justify-between border-l border-border bg-muted/20 p-12 lg:flex overflow-hidden">
-        <div className="absolute top-20 right-20 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-        
+      <div className="border-border bg-muted/20 relative hidden w-1/2 flex-col justify-between overflow-hidden border-l p-12 lg:flex">
+        <div className="bg-primary/10 absolute top-20 right-20 h-64 w-64 rounded-full blur-3xl" />
+
         <div className="relative z-10 flex items-center justify-end gap-3">
-          <span className="text-xl font-bold tracking-tight text-foreground">
+          <span className="text-foreground text-xl font-bold tracking-tight">
             CRM LogaByte
           </span>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg">
+          <div className="bg-primary text-primary-foreground flex h-10 w-10 items-center justify-center rounded-xl shadow-lg">
             <MessageSquare className="h-5 w-5" />
           </div>
         </div>
 
-        <div className="relative z-10 mt-auto max-w-md ml-auto text-right">
-          <h2 className="text-3xl font-semibold tracking-tight text-foreground mb-4">
+        <div className="relative z-10 mt-auto ml-auto max-w-md text-right">
+          <h2 className="text-foreground mb-4 text-3xl font-semibold tracking-tight">
             Comienza en segundos.
           </h2>
-          <p className="text-lg text-muted-foreground">
-            Únete a cientos de equipos que ya están optimizando sus ventas y soporte al cliente mediante WhatsApp.
+          <p className="text-muted-foreground text-lg">
+            Únete a cientos de equipos que ya están optimizando sus ventas y
+            soporte al cliente mediante WhatsApp.
           </p>
         </div>
       </div>
@@ -130,26 +140,25 @@ function SignupPageInner() {
       {/* Panel Izquierdo - Formulario */}
       <div className="flex flex-1 flex-col justify-center px-6 py-12 sm:px-12 lg:w-1/2 lg:px-16 xl:px-24">
         <div className="mx-auto w-full max-w-sm lg:max-w-md">
-          
           <div className="mb-8">
-            <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 lg:hidden">
-              <MessageSquare className="h-6 w-6 text-primary" />
+            <div className="bg-primary/10 mb-6 flex h-12 w-12 items-center justify-center rounded-2xl lg:hidden">
+              <MessageSquare className="text-primary h-6 w-6" />
             </div>
-            
-            <h2 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+
+            <h2 className="text-foreground flex items-center gap-2 text-3xl font-bold tracking-tight">
               {inviteToken ? (
                 <>
-                  <UsersRound className="h-7 w-7 text-primary" />
+                  <UsersRound className="text-primary h-7 w-7" />
                   Únete a tu equipo
                 </>
               ) : (
-                "Crear una cuenta"
+                'Crear una cuenta'
               )}
             </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="text-muted-foreground mt-2 text-sm">
               {inviteToken
-                ? "Regístrate para aceptar la invitación y colaborar."
-                : "Ingresa tus datos para empezar a usar CRM Template."}
+                ? 'Regístrate para aceptar la invitación y colaborar.'
+                : 'Ingresa tus datos para empezar a usar CRM Template.'}
             </p>
           </div>
 
@@ -170,7 +179,7 @@ function SignupPageInner() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
-                  className="h-11 bg-muted/50 focus-visible:bg-transparent"
+                  className="bg-muted/50 h-11 focus-visible:bg-transparent"
                 />
               </div>
 
@@ -183,7 +192,7 @@ function SignupPageInner() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="h-11 bg-muted/50 focus-visible:bg-transparent"
+                  className="bg-muted/50 h-11 focus-visible:bg-transparent"
                 />
               </div>
 
@@ -197,7 +206,7 @@ function SignupPageInner() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="h-11 bg-muted/50 focus-visible:bg-transparent"
+                    className="bg-muted/50 h-11 focus-visible:bg-transparent"
                   />
                 </div>
 
@@ -210,7 +219,7 @@ function SignupPageInner() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    className="h-11 bg-muted/50 focus-visible:bg-transparent"
+                    className="bg-muted/50 h-11 focus-visible:bg-transparent"
                   />
                 </div>
               </div>
@@ -221,20 +230,24 @@ function SignupPageInner() {
               disabled={loading}
               className="group mt-2 h-11 w-full text-base"
             >
-              {loading ? "Creando cuenta..." : "Crear cuenta"}
-              {!loading && <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />}
+              {loading ? 'Creando cuenta...' : 'Crear cuenta'}
+              {!loading && (
+                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+              )}
             </Button>
           </form>
 
           <div className="mt-8 text-center text-sm">
-            <span className="text-muted-foreground">¿Ya tienes una cuenta? </span>
+            <span className="text-muted-foreground">
+              ¿Ya tienes una cuenta?{' '}
+            </span>
             <Link
               href={
                 inviteToken
                   ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : "/login"
+                  : '/login'
               }
-              className="font-medium text-primary hover:underline"
+              className="text-primary font-medium hover:underline"
             >
               Inicia sesión aquí
             </Link>

@@ -51,6 +51,7 @@ import { type ValidationIssue } from '@/lib/flows/validate';
 import {
   NODE_META,
   NodeIconChip,
+  displayNodeName,
   groupNodeTypesByCategory,
   nodeColors,
   slugify,
@@ -439,9 +440,9 @@ function NodeCard({
             >
               {t(`nodes.${node.node_type}.label`)}
             </span>
-            <code className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">
-              {node.node_key}
-            </code>
+            <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">
+              {displayNodeName(node.node_key)}
+            </span>
             {isEntry && (
               <Badge
                 variant="outline"
@@ -529,7 +530,7 @@ function NodeConfigWithAdvanced({
   const hasReplyIds =
     node.node_type === 'send_buttons' || node.node_type === 'send_list';
   return (
-    <div className="flex flex-col gap-3">
+    <div className="@container flex min-w-0 flex-col gap-3">
       <NodeConfigForm
         node={node}
         allNodes={allNodes}

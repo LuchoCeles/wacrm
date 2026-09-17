@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useTotalUnread } from '@/hooks/use-total-unread';
@@ -113,13 +113,27 @@ interface SidebarProps {
 
 import { useTranslations } from 'next-intl';
 
+const SIDEBAR_WIDTH_TRANSITION_MS = 200;
+
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const t = useTranslations('Sidebar');
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  // Keep text out of the layout while the desktop rail is changing width.
+  // Otherwise, expanding starts by trying to fit the labels into 64px and
+  // browsers repeatedly reflow/truncate them on every animation frame.
+  const [showExpandedContent, setShowExpandedContent] = useState(true);
+  const collapseFrameRef = useRef<number | null>(null);
+  const expandContentTimerRef = useRef<number | null>(null);
   const { profile, profileLoading, account, accountRole, signOut } = useAuth();
   const totalUnread = useTotalUnread();
   const unreadNotifications = useUnreadNotifications();
+  // A lone glyph needs a little more optical weight than one paired with a
+  // label. Keep the compact rail visually balanced without changing row size.
+  const navigationIconClassName = cn(
+    'h-4 w-4 shrink-0',
+    isCollapsed && 'lg:h-[18px] lg:w-[18px]'
+  );
   // Only surface the account-name strip when it actually carries
   // information. A solo user's personal account is named after them
   // (the 017 signup trigger seeds it from `full_name`), so showing it
@@ -158,14 +172,52 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   // Desktop navigation is a personal presentation preference, so retain it
   // across visits without involving the server-rendered dashboard shell.
   useEffect(() => {
-    setIsCollapsed(window.localStorage.getItem('sidebar-collapsed') === 'true');
+    const collapsed =
+      window.localStorage.getItem('sidebar-collapsed') === 'true';
+    setIsCollapsed(collapsed);
+    setShowExpandedContent(!collapsed);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (collapseFrameRef.current !== null) {
+        window.cancelAnimationFrame(collapseFrameRef.current);
+      }
+      if (expandContentTimerRef.current !== null) {
+        window.clearTimeout(expandContentTimerRef.current);
+      }
+    };
   }, []);
 
   const toggleCollapsed = () => {
-    setIsCollapsed((current) => {
-      const next = !current;
-      window.localStorage.setItem('sidebar-collapsed', String(next));
-      return next;
+    if (collapseFrameRef.current !== null) {
+      window.cancelAnimationFrame(collapseFrameRef.current);
+      collapseFrameRef.current = null;
+    }
+    if (expandContentTimerRef.current !== null) {
+      window.clearTimeout(expandContentTimerRef.current);
+      expandContentTimerRef.current = null;
+    }
+
+    if (isCollapsed) {
+      // Expand the rail first; inserting text only after its final width
+      // prevents it from wrapping or changing truncation mid-animation.
+      setIsCollapsed(false);
+      window.localStorage.setItem('sidebar-collapsed', 'false');
+      expandContentTimerRef.current = window.setTimeout(() => {
+        setShowExpandedContent(true);
+        expandContentTimerRef.current = null;
+      }, SIDEBAR_WIDTH_TRANSITION_MS);
+      return;
+    }
+
+    // Remove labels before the rail starts shrinking. requestAnimationFrame
+    // gives React one painted frame to apply the hidden desktop content.
+    setShowExpandedContent(false);
+    window.localStorage.setItem('sidebar-collapsed', 'true');
+    collapseFrameRef.current = window.requestAnimationFrame(() => {
+      setIsCollapsed(true);
+      collapseFrameRef.current = null;
     });
   };
 
@@ -190,7 +242,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         <aside
           className={cn(
             // Mobile: fixed drawer that slides in from the left.
-            'border-border bg-card fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col border-r',
+            'border-border bg-card fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col overflow-x-hidden border-r',
             'transition-transform duration-200 ease-out will-change-transform',
             open ? 'translate-x-0' : '-translate-x-full',
             // Desktop: static and always visible, with a compact icon rail.
@@ -204,7 +256,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           <div
             className={cn(
               'group/sidebar-logo border-border relative flex h-14 shrink-0 items-center gap-2 border-b px-4',
-              isCollapsed ? 'lg:justify-center lg:px-3' : 'justify-between'
+              isCollapsed || !showExpandedContent
+                ? 'lg:justify-center lg:px-3'
+                : 'justify-between'
             )}
           >
             <div className="flex min-w-0 items-center gap-2">
@@ -219,7 +273,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 <span
                   className={cn(
                     'text-foreground truncate text-sm font-semibold',
-                    isCollapsed && 'lg:hidden'
+                    !showExpandedContent && 'lg:hidden'
                   )}
                 >
                   {t('title')}
@@ -234,7 +288,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 aria-expanded={true}
                 className={cn(
                   'text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring hidden h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none lg:flex',
-                  isCollapsed && 'pointer-events-none absolute opacity-0'
+                  (!showExpandedContent || isCollapsed) &&
+                    'pointer-events-none absolute opacity-0'
                 )}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -284,7 +339,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
                 return (
                   <li key={item.href}>
-                    <Tooltip disabled={!isCollapsed}>
+                    <Tooltip disabled={showExpandedContent}>
                       <TooltipTrigger
                         render={
                           <Link
@@ -299,11 +354,11 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                             )}
                           >
-                            <item.icon className="h-4 w-4 shrink-0" />
+                            <item.icon className={navigationIconClassName} />
                             <span
                               className={cn(
                                 'flex-1',
-                                isCollapsed && 'lg:hidden'
+                                !showExpandedContent && 'lg:hidden'
                               )}
                             >
                               {t(item.labelKey as string)}
@@ -313,7 +368,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                                 aria-label={t('beta')}
                                 className={cn(
                                   'rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-amber-300 uppercase',
-                                  isCollapsed && 'lg:hidden'
+                                  !showExpandedContent && 'lg:hidden'
                                 )}
                               >
                                 {t('beta')}
@@ -326,7 +381,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                                 })}
                                 className={cn(
                                   'relative flex h-2 w-2',
-                                  isCollapsed && 'lg:hidden'
+                                  !showExpandedContent && 'lg:hidden'
                                 )}
                               >
                                 <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
@@ -340,7 +395,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                                 })}
                                 className={cn(
                                   'bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold',
-                                  isCollapsed && 'lg:hidden'
+                                  !showExpandedContent && 'lg:hidden'
                                 )}
                               >
                                 {unreadNotifications > 9
@@ -367,7 +422,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 const isActive = pathname.startsWith(item.href);
                 return (
                   <li key={item.href}>
-                    <Tooltip disabled={!isCollapsed}>
+                    <Tooltip disabled={showExpandedContent}>
                       <TooltipTrigger
                         render={
                           <Link
@@ -381,8 +436,12 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                             )}
                           >
-                            <item.icon className="h-4 w-4 shrink-0" />
-                            <span className={cn(isCollapsed && 'lg:hidden')}>
+                            <item.icon className={navigationIconClassName} />
+                            <span
+                              className={cn(
+                                !showExpandedContent && 'lg:hidden'
+                              )}
+                            >
                               {t(item.labelKey as string)}
                             </span>
                           </Link>
@@ -410,7 +469,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               <div
                 className={cn(
                   'text-muted-foreground mb-2 flex items-center gap-2 px-3 text-xs',
-                  isCollapsed && 'lg:hidden'
+                  !showExpandedContent && 'lg:hidden'
                 )}
               >
                 <UsersRound className="size-3.5 shrink-0" />
@@ -441,7 +500,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               </div>
             ) : null}
             <DropdownMenu>
-              <Tooltip disabled={!isCollapsed}>
+              <Tooltip disabled={showExpandedContent}>
                 <TooltipTrigger
                   render={
                     <DropdownMenuTrigger
@@ -467,7 +526,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     </AvatarFallback>
                   </Avatar>
                   <div
-                    className={cn('min-w-0 flex-1', isCollapsed && 'lg:hidden')}
+                    className={cn(
+                      'min-w-0 flex-1',
+                      !showExpandedContent && 'lg:hidden'
+                    )}
                   >
                     <p className="text-foreground truncate text-sm font-medium">
                       {profile?.full_name ?? t('defaultUser')}

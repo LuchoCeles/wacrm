@@ -92,6 +92,8 @@ export default function FlowsPage() {
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
+  const [flowToDelete, setFlowToDelete] = useState<FlowRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -176,17 +178,22 @@ export default function FlowsPage() {
     }
   }
 
-  async function handleDelete(flow: FlowRow) {
-    const yes = window.confirm(t("deleteConfirm", { name: flow.name }));
-    if (!yes) return;
+  async function handleDelete() {
+    if (!flowToDelete) return;
+    setDeleting(true);
     try {
-      const res = await fetch(`/api/flows/${flow.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/flows/${flowToDelete.id}`, {
+        method: "DELETE",
+      });
       if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
-      setFlows((prev) => prev.filter((f) => f.id !== flow.id));
+      setFlows((prev) => prev.filter((flow) => flow.id !== flowToDelete.id));
+      setFlowToDelete(null);
       toast.success(t("deleteSuccess"));
     } catch (err) {
       console.error(err);
       toast.error(t("deleteError"));
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -235,7 +242,7 @@ export default function FlowsPage() {
               key={flow.id}
               flow={flow}
               onEdit={() => router.push(`/flows/${flow.id}`)}
-              onDelete={() => handleDelete(flow)}
+              onDelete={() => setFlowToDelete(flow)}
               t={t}
             />
           ))}
@@ -314,6 +321,42 @@ export default function FlowsPage() {
             <Button onClick={handleCreate} disabled={!newName.trim() || creating}>
               {creating && <Loader2 className="h-4 w-4 animate-spin" />}
               {t("createBlank")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={flowToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setFlowToDelete(null);
+        }}
+      >
+        <DialogContent
+          showCloseButton={!deleting}
+          className="bg-popover text-popover-foreground"
+        >
+          <DialogHeader>
+            <DialogTitle>{t("delete")}</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              {flowToDelete && t("deleteConfirm", { name: flowToDelete.name })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setFlowToDelete(null)}
+              disabled={deleting}
+            >
+              {t("cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void handleDelete()}
+              disabled={deleting}
+            >
+              {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t("delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

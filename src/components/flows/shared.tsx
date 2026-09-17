@@ -292,6 +292,66 @@ export function slugify(s: string, fallback: string): string {
   return cleaned || fallback;
 }
 
+/**
+ * Human-friendly names for the starter-template nodes. Node keys stay
+ * machine-safe because the flow engine uses them as stable references,
+ * but the editor should present an action rather than an implementation
+ * detail such as `transferencia_cliente_nuevo`.
+ *
+ * Includes the previous English keys so flows cloned before the Spanish
+ * templates were introduced receive the same visual treatment.
+ */
+const NODE_DISPLAY_NAMES: Record<string, string> = {
+  start: 'Inicio',
+  inicio: 'Inicio',
+  welcome: 'Bienvenida',
+  bienvenida: 'Bienvenida',
+  existing_handoff: 'Transferir cliente existente',
+  transferencia_cliente_existente: 'Transferir cliente existente',
+  new_handoff: 'Transferir cliente nuevo',
+  transferencia_cliente_nuevo: 'Transferir cliente nuevo',
+  topics: 'Elegir tema',
+  temas: 'Elegir tema',
+  answer_hours: 'Informar horarios',
+  respuesta_horarios: 'Informar horarios',
+  answer_pricing: 'Informar precios',
+  respuesta_precios: 'Informar precios',
+  respuesta_pagos: 'Informar pagos y comprobantes',
+  answer_refunds: 'Informar reembolsos',
+  respuesta_reembolsos: 'Informar reembolsos',
+  respuesta_cambios: 'Informar cambios y devoluciones',
+  pedir_referencia: 'Solicitar número de referencia',
+  human_handoff: 'Transferir a una persona',
+  transferencia_persona: 'Transferir a una persona',
+  transferencia_soporte: 'Transferir a soporte',
+  end: 'Finalizar',
+  fin: 'Finalizar',
+  intro: 'Introducción',
+  introduccion: 'Introducción',
+  ask_name: 'Solicitar nombre',
+  pedir_nombre: 'Solicitar nombre',
+  ask_email: 'Solicitar correo',
+  pedir_correo: 'Solicitar correo',
+  ask_company: 'Solicitar empresa',
+  pedir_empresa: 'Solicitar empresa',
+  ask_question: 'Solicitar consulta',
+  pedir_consulta: 'Solicitar consulta',
+  handoff: 'Transferir a ventas',
+  transferencia: 'Transferir a ventas',
+};
+
+/** Formats arbitrary custom keys legibly when no starter-template name exists. */
+export function displayNodeName(nodeKey: string): string {
+  const knownName = NODE_DISPLAY_NAMES[nodeKey];
+  if (knownName) return knownName;
+
+  return nodeKey
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 // ============================================================
 // Summary helpers — short, single-line content previews used in
 // collapsed node cards (list view) and node tiles (canvas view).
