@@ -76,14 +76,14 @@ export function phoneVariants(sanitized: string): string[] {
 
   // 2. Reglas específicas para ARGENTINA (54)
   if (sanitized.startsWith('54')) {
-    let rest = sanitized.slice(2); // Todo lo que está después del 54
+    const rest = sanitized.slice(2); // Todo lo que está después del 54
     
     // Quitamos el '9' inicial si lo tiene
-    let sinNueve = rest.startsWith('9') ? rest.slice(1) : rest;
+    const sinNueve = rest.startsWith('9') ? rest.slice(1) : rest;
     
     // Quitamos el '0' inicial si lo tiene (el 0 del código de área)
-    let sinNueveNiCero = sinNueve.startsWith('0') ? sinNueve.slice(1) : sinNueve;
-    let conNueveSinCero = rest.startsWith('9') && rest.charAt(1) === '0' 
+    const sinNueveNiCero = sinNueve.startsWith('0') ? sinNueve.slice(1) : sinNueve;
+    const conNueveSinCero = rest.startsWith('9') && rest.charAt(1) === '0'
         ? '9' + rest.slice(2) 
         : rest;
 
@@ -96,7 +96,7 @@ export function phoneVariants(sanitized: string): string[] {
 
   // 3. Reglas específicas para MÉXICO (52)
   if (sanitized.startsWith('52')) {
-    let rest = sanitized.slice(2);
+    const rest = sanitized.slice(2);
     // En México el dígito extra problemático es el '1' después del 52
     if (rest.startsWith('1')) {
       push('52' + rest.slice(1)); // Sin el 1

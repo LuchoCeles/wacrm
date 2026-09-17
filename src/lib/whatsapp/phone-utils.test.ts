@@ -102,18 +102,13 @@ describe("phoneVariants", () => {
     expect(out[0]).toBe("37063949836");
   });
 
-  it("inserts a trunk 0 after each plausible country-code length", () => {
-    // Input "37063949836" — CC-1 → "3" + "0" + "7063949836",
-    //                       CC-3 → "370" + "0" + "63949836".
-    // CC-2 is skipped because "063949836" already starts with 0.
+  it("never adds a trunk 0 for countries without a dedicated rule", () => {
+    // The generic fallback only removes an existing trunk 0. It must
+    // not invent one after a possible country-code prefix.
     const out = phoneVariants("37063949836");
-    expect(out).toEqual(
-      expect.arrayContaining([
-        "37063949836",
-        "307063949836",
-        "370063949836",
-      ]),
-    );
+    expect(out).toContain("37063949836");
+    expect(out).not.toContain("307063949836");
+    expect(out).not.toContain("370063949836");
   });
 
   it("removes a leading 0 after the country code when present", () => {
